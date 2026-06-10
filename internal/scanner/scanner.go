@@ -148,25 +148,16 @@ func (s *Scanner) Scan(userID uint, report func(Progress)) (Result, error) {
 
 func (s *Scanner) buildMediaFile(userID uint, rel, abs string, modTime, size int64) models.MediaFile {
 	t, _ := ParseTags(abs)
-	return models.MediaFile{
-		UserID:      userID,
-		RelPath:     rel,
-		Title:       t.Title,
-		Album:       t.Album,
-		AlbumArtist: t.AlbumArtist,
-		Artists:     t.Artists,
-		Genres:      t.Genres,
-		TrackNo:     t.TrackNo,
-		DiscNo:      t.DiscNo,
-		Year:        t.Year,
-		Duration:    t.Duration,
-		Bitrate:     t.Bitrate,
-		SampleRate:  t.SampleRate,
-		Container:   t.Container,
-		SizeBytes:   size,
-		ModTime:     modTime,
-		TrackHash:   TrackHash(t.Artists, t.Album, t.Title),
-		AlbumHash:   AlbumHash(t.AlbumArtist, t.Album),
-		ArtistHash:  ArtistHash(t.AlbumArtist),
+	mf := models.MediaFile{
+		UserID:     userID,
+		RelPath:    rel,
+		Duration:   t.Duration,
+		Bitrate:    t.Bitrate,
+		SampleRate: t.SampleRate,
+		Container:  t.Container,
+		SizeBytes:  size,
+		ModTime:    modTime,
 	}
+	ApplyTagFields(&mf, t)
+	return mf
 }

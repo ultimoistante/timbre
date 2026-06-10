@@ -100,9 +100,13 @@ func (s *Server) registerRoutes() {
 
 	// Library views (derived from MediaFile, scoped per user).
 	authed.GET("/tracks", s.handleTracks)
+	authed.PATCH("/tracks/:id", s.handleUpdateTrack)
 	authed.GET("/albums", s.handleAlbums)
 	authed.GET("/albums/:hash", s.handleAlbumTracks)
+	authed.PATCH("/albums/:hash", s.handleUpdateAlbum)
 	authed.GET("/albums/:hash/art", s.handleAlbumArt)
+	authed.GET("/albums/:hash/art/search", s.handleSearchAlbumArt)
+	authed.PUT("/albums/:hash/art", s.handleSetAlbumArt)
 	authed.GET("/artists", s.handleArtists)
 	authed.GET("/search", s.handleSearch)
 	authed.GET("/recently-added", s.handleRecentlyAdded)

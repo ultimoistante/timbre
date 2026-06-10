@@ -4,10 +4,56 @@
   import { page } from '$app/stores';
   import { api } from '$lib/api/client.js';
   import { player, currentTrack, playing } from '$lib/stores/player.js';
+  import TrackEditModal from '$lib/components/TrackEditModal.svelte';
 
   let tracks = [];
   let loading = true;
   let artError = false;
+
+  // Tag edit modal state
+  let editTrack = null;   // track being edited (track mode)
+  let editAlbum = false;  // album-mode modal open
+  let artVersion = 0;     // cache-bust for album art after an update
+
+  function onArtUpdated() {
+    artError = false;
+    artVersion = Date.now();
+  }
+
+  function openEditTrack(track, ev) {
+    ev.stopPropagation();
+    menuTrackId = null;
+    editTrack = track;
+  }
+
+  function onTrackSaved(ev) {
+    const updated = ev.detail;
+    editTrack = null;
+    if (updated.albumHash !== hash) {
+      // Track moved to a different album — drop it from this view.
+      tracks = tracks.filter((t) => t.id !== updated.id);
+    } else {
+      tracks = tracks.map((t) => (t.id === updated.id ? updated : t));
+    }
+  }
+
+  function onAlbumSaved(ev) {
+    const { albumHash: newHash } = ev.detail;
+    editAlbum = false;
+    if (newHash && newHash !== hash) {
+      goto('/library/' + newHash);
+    } else {
+      reload();
+    }
+  }
+
+  async function reload() {
+    try {
+      tracks = await api.get('/albums/' + hash) ?? [];
+    } catch (e) {
+      tracks = [];
+    }
+  }
 
   // Playlist picker state
   let menuTrackId = null;   // id of track whose "add to playlist" menu is open
@@ -112,7 +158,7 @@
       <div class="art-wrap">
         {#if !artError && album}
           <img
-            src="/api/albums/{album.hash}/art"
+            src="/api/albums/{album.hash}/art{artVersion ? '?v=' + artVersion : ''}"
             alt=""
             class="art-img"
             on:error={() => artError = true}
@@ -129,15 +175,21 @@
         <h1 class="album-title">{album?.name}</h1>
         <p class="album-artist">{album?.artist}{album?.year ? ' · ' + album.year : ''}</p>
         <p class="album-stats">{tracks.length} tracks · {fmtTotalDur(totalDuration)}</p>
-        <button class="play-all-btn" on:click={() => playFrom(0)}>
-          {#if isCurrentAlbum && $playing}
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-            Pause
-          {:else}
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Play
-          {/if}
-        </button>
+        <div class="album-actions">
+          <button class="play-all-btn" on:click={() => playFrom(0)}>
+            {#if isCurrentAlbum && $playing}
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              Pause
+            {:else}
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Play
+            {/if}
+          </button>
+          <button class="edit-album-btn" on:click={() => editAlbum = true}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit
+          </button>
+        </div>
       </div>
     </div>
 
@@ -163,6 +215,14 @@
           <span class="t-dur">{fmtDur(track.duration)}</span>
 
           <div class="add-wrap">
+            <button
+              class="add-btn"
+              title="Edit tags"
+              aria-label="Edit tags"
+              on:click={(e) => openEditTrack(track, e)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
             <button
               class="add-btn"
               title="Add to playlist"
@@ -197,6 +257,26 @@
     </ul>
   {/if}
 </div>
+
+{#if editTrack}
+  <TrackEditModal
+    mode="track"
+    track={editTrack}
+    on:saved={onTrackSaved}
+    on:close={() => editTrack = null}
+  />
+{/if}
+
+{#if editAlbum}
+  <TrackEditModal
+    mode="album"
+    {hash}
+    track={tracks[0]}
+    on:saved={onAlbumSaved}
+    on:artUpdated={onArtUpdated}
+    on:close={() => editAlbum = false}
+  />
+{/if}
 
 <style>
   .album-page { display: flex; flex-direction: column; gap: 24px; }
@@ -276,11 +356,17 @@
     color: #888888;
   }
 
+  .album-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
   .play-all-btn {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 8px;
     padding: 10px 24px;
     background: #ffffff;
     color: #000000;
@@ -291,6 +377,21 @@
     transition: background 150ms ease;
   }
   .play-all-btn:hover { background: #dddddd; }
+
+  .edit-album-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    background: none;
+    border: 1px solid #3a3a3a;
+    color: #cccccc;
+    border-radius: 24px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: border-color 150ms ease, color 150ms ease;
+  }
+  .edit-album-btn:hover { border-color: #888888; color: #ffffff; background: none; }
 
   .track-list {
     list-style: none;
