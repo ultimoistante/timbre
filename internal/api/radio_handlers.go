@@ -38,6 +38,22 @@ func (s *Server) handleProbeStream(c echo.Context) error {
 	return c.JSON(http.StatusOK, info)
 }
 
+// normalizeTags cleans a comma-separated tag string: trims each tag, drops
+// blanks and case-insensitive duplicates, lowercases, and rejoins with ",".
+func normalizeTags(raw string) string {
+	seen := map[string]bool{}
+	var out []string
+	for _, t := range strings.Split(raw, ",") {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if t == "" || seen[t] {
+			continue
+		}
+		seen[t] = true
+		out = append(out, t)
+	}
+	return strings.Join(out, ",")
+}
+
 func (s *Server) handleListStreams(c echo.Context) error {
 	u := auth.CurrentUser(c)
 	var stations []models.RadioStation
@@ -56,6 +72,7 @@ func (s *Server) handleCreateStream(c echo.Context) error {
 		Name     string `json:"name"`
 		URL      string `json:"url"`
 		Genre    string `json:"genre"`
+		Tags     string `json:"tags"`
 		Homepage string `json:"homepage"`
 		Favicon  string `json:"favicon"`
 	}
@@ -70,6 +87,7 @@ func (s *Server) handleCreateStream(c echo.Context) error {
 		Name:     body.Name,
 		URL:      strings.TrimSpace(body.URL),
 		Genre:    body.Genre,
+		Tags:     normalizeTags(body.Tags),
 		Homepage: body.Homepage,
 		Favicon:  body.Favicon,
 	}
@@ -92,6 +110,7 @@ func (s *Server) handleUpdateStream(c echo.Context) error {
 		Name     *string `json:"name"`
 		URL      *string `json:"url"`
 		Genre    *string `json:"genre"`
+		Tags     *string `json:"tags"`
 		Homepage *string `json:"homepage"`
 		Favicon  *string `json:"favicon"`
 		Pinned   *bool   `json:"pinned"`
@@ -113,6 +132,9 @@ func (s *Server) handleUpdateStream(c echo.Context) error {
 	}
 	if body.Genre != nil {
 		st.Genre = *body.Genre
+	}
+	if body.Tags != nil {
+		st.Tags = normalizeTags(*body.Tags)
 	}
 	if body.Homepage != nil {
 		st.Homepage = *body.Homepage

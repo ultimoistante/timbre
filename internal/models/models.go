@@ -93,6 +93,7 @@ type RadioStation struct {
 	Name      string    `gorm:"not null" json:"name"`
 	URL       string    `gorm:"not null" json:"url"` // upstream stream URL
 	Genre     string    `json:"genre"`
+	Tags      string    `json:"tags"` // comma-separated user tags ("raccolte")
 	Homepage  string    `json:"homepage"`
 	Favicon   string    `json:"favicon"` // optional logo URL
 	Pinned    bool      `gorm:"default:false" json:"pinned"`
