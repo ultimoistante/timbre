@@ -84,6 +84,22 @@ type PlaylistTrack struct {
 	Position   int  `gorm:"not null;default:0;index:idx_pl_pos,priority:2" json:"position"`
 }
 
+// RadioStation is a user-saved web radio (a continuous live HTTP audio stream
+// identified by URL). Unlike MediaFile it has no duration, seek or queue
+// semantics; it is played by proxying the upstream URL through the server.
+type RadioStation struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"not null;index" json:"-"`
+	Name      string    `gorm:"not null" json:"name"`
+	URL       string    `gorm:"not null" json:"url"` // upstream stream URL
+	Genre     string    `json:"genre"`
+	Homepage  string    `json:"homepage"`
+	Favicon   string    `json:"favicon"` // optional logo URL
+	Pinned    bool      `gorm:"default:false" json:"pinned"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 // AllModels returns every model for AutoMigrate.
 func AllModels() []any {
 	return []any{
@@ -91,5 +107,6 @@ func AllModels() []any {
 		&MediaFile{},
 		&Playlist{},
 		&PlaylistTrack{},
+		&RadioStation{},
 	}
 }

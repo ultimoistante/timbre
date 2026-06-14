@@ -30,6 +30,13 @@
 
   let artError = false;
   $: if ($currentTrack) artError = false;
+
+  // Streams have no album hash; use their station favicon (may be empty).
+  $: artSrc = !$currentTrack
+    ? ''
+    : $currentTrack.isStream
+      ? ($currentTrack.favicon || '')
+      : ($currentTrack.albumHash ? `/api/albums/${$currentTrack.albumHash}/art` : '');
 </script>
 
 <div class="app">
@@ -53,6 +60,11 @@
       <a href="/playlists" class="nav-link" class:active={isActive('/playlists')}>
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
         Playlists
+      </a>
+
+      <a href="/streams" class="nav-link" class:active={isActive('/streams')}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M4.93 19.07a10 10 0 0 1 0-14.14M7.76 16.24a6 6 0 0 1 0-8.49M16.24 7.76a6 6 0 0 1 0 8.49M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        Streams
       </a>
 
       <a href="/files" class="nav-link" class:active={isActive('/files')}>
@@ -81,18 +93,12 @@
 
       <div class="sidebar-bottom">
         <div class="now-playing-art">
-          {#if $currentTrack}
-            {#if !artError}
-              <img
-                src="/api/albums/{$currentTrack.albumHash}/art"
-                alt="Album art"
-                on:error={() => { artError = true; }}
-              />
-            {:else}
-              <div class="art-placeholder">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-              </div>
-            {/if}
+          {#if $currentTrack && artSrc && !artError}
+            <img
+              src={artSrc}
+              alt="Album art"
+              on:error={() => { artError = true; }}
+            />
           {:else}
             <div class="art-placeholder">
               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>

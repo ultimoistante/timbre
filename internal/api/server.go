@@ -120,6 +120,14 @@ func (s *Server) registerRoutes() {
 	authed.POST("/playlists/:id/tracks", s.handleAddPlaylistTracks)
 	authed.DELETE("/playlists/:id/tracks/:ptId", s.handleRemovePlaylistTrack)
 
+	// Web radio streams.
+	authed.GET("/streams/probe", s.handleProbeStream)
+	authed.GET("/streams", s.handleListStreams)
+	authed.POST("/streams", s.handleCreateStream)
+	authed.PATCH("/streams/:id", s.handleUpdateStream)
+	authed.DELETE("/streams/:id", s.handleDeleteStream)
+	authed.GET("/streams/:id/play", s.handleRadioPlay)
+
 	// Audio streaming.
 	authed.GET("/stream/:id", s.handleStream)
 

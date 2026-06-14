@@ -1,13 +1,19 @@
 <script>
-  import { tick } from 'svelte';
+  import { tick, onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
-  import { queue, queueIdx, playing, progress, volume, quality, container, currentTrack } from '$lib/stores/player.js';
+  import { queue, queueIdx, playing, progress, volume, quality, container, currentTrack, nowPlaying } from '$lib/stores/player.js';
+  import { auth } from '$lib/stores/auth.js';
   import { api } from '$lib/api/client.js';
 
   let audio;
   let seeking = false;
   let currentTime = 0;
   let duration = 0;
+
+  $: isStream = !!$currentTrack?.isStream;
+  // When native playback of a stream fails (browser can't decode the source
+  // codec, e.g. raw AAC), retry once via the server's MP3 transcode fallback.
+  let streamFallback = false;
 
   // Stub: favorite state (no backend yet)
   let favorited = false;
@@ -27,7 +33,22 @@
     }
   }
 
-  $: src = $currentTrack ? api.streamUrl($currentTrack.id, $quality, $container) : null;
+  $: src = !$currentTrack
+    ? null
+    : isStream
+      ? $currentTrack.streamUrl + (streamFallback ? '?transcode=mp3' : '')
+      : api.streamUrl($currentTrack.id, $quality, $container);
+
+  async function onAudioError() {
+    if (isStream && !streamFallback) {
+      // Switch to the transcoded source and resume.
+      streamFallback = true;
+      await tick();
+      audio?.play().catch(() => playing.set(false));
+    } else {
+      playing.set(false);
+    }
+  }
 
   $: if (audio) {
     if ($playing) audio.play().catch(() => playing.set(false));
@@ -67,6 +88,8 @@
     currentTime = 0;
     duration = 0;
     progress.set(0);
+    nowPlaying.set('');
+    streamFallback = false;
     if (!$currentTrack) return;
     await tick(); // wait for Svelte to flush audio.src to the DOM
     if (!audio) return;
@@ -89,6 +112,20 @@
     navigator.mediaSession.setActionHandler('nexttrack',      () => queueIdx.update(i => Math.min(get(queue).length - 1, i + 1)));
   }
 
+  // Subscribe to live ICY now-playing titles pushed by the radio proxy.
+  let es;
+  onMount(() => {
+    if (!get(auth).accessToken) return;
+    es = new EventSource('/api/events', { withCredentials: true });
+    es.addEventListener('nowplaying', (e) => {
+      try {
+        const { title } = JSON.parse(e.data);
+        if (isStream) nowPlaying.set(title || '');
+      } catch { /* ignore malformed */ }
+    });
+  });
+  onDestroy(() => es?.close());
+
   function fmtTime(sec) {
     if (!sec || isNaN(sec)) return '0:00';
     const m = Math.floor(sec / 60);
@@ -107,6 +144,7 @@
     on:timeupdate={onTimeUpdate}
     on:loadedmetadata={onLoadedMetadata}
     on:ended={onEnded}
+    on:error={onAudioError}
     preload="metadata"
   />
 {/if}
@@ -133,8 +171,13 @@
 
     <div class="track-info">
       {#if $currentTrack}
-        <span class="title">{$currentTrack.title || '—'}</span>
-        <span class="artist">{$currentTrack.artists || ''}</span>
+        <span class="title">
+          {#if isStream}<span class="live-badge">LIVE</span>{/if}
+          {$currentTrack.title || '—'}
+        </span>
+        <span class="artist">
+          {#if isStream}{$nowPlaying || $currentTrack.artists || ''}{:else}{$currentTrack.artists || ''}{/if}
+        </span>
       {:else}
         <span class="title muted">No track selected</span>
       {/if}
@@ -149,7 +192,7 @@
         on:click={() => { playing.set(true); queueIdx.update(i => Math.max(0, i - 1)); }}
         title="Previous"
         aria-label="Previous track"
-        disabled={!$currentTrack}
+        disabled={!$currentTrack || isStream}
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
       </button>
@@ -175,24 +218,31 @@
         on:click={() => { playing.set(true); queueIdx.update(i => (i + 1) % get(queue).length); }}
         title="Next"
         aria-label="Next track"
-        disabled={!$currentTrack}
+        disabled={!$currentTrack || isStream}
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
       </button>
     </div>
 
-    <div class="seek-row">
-      <span class="time">{fmtTime(currentTime)}</span>
-      <input
-        type="range" min="0" max="100"
-        value={$progress * 100}
-        on:mousedown={() => seeking = true}
-        on:mouseup={(e) => { seeking = false; seekTo(e); }}
-        on:change={seekTo}
-        class="seek"
-      />
-      <span class="time">{fmtTime(duration)}</span>
-    </div>
+    {#if isStream}
+      <div class="seek-row live-row">
+        <span class="live-dot" class:on={$playing}></span>
+        <span class="time live-text">Live stream</span>
+      </div>
+    {:else}
+      <div class="seek-row">
+        <span class="time">{fmtTime(currentTime)}</span>
+        <input
+          type="range" min="0" max="100"
+          value={$progress * 100}
+          on:mousedown={() => seeking = true}
+          on:mouseup={(e) => { seeking = false; seekTo(e); }}
+          on:change={seekTo}
+          class="seek"
+        />
+        <span class="time">{fmtTime(duration)}</span>
+      </div>
+    {/if}
   </div>
 
   <!-- Right zone: volume + repeat + lyrics + more -->
@@ -296,6 +346,38 @@
   }
 
   .muted { color: #555555; }
+
+  .live-badge {
+    display: inline-block;
+    background: #e53e3e;
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 1px 5px;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+
+  .live-row { justify-content: center; gap: 8px; }
+
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #555;
+  }
+  .live-dot.on {
+    background: #e53e3e;
+    animation: live-pulse 1.4s ease-in-out infinite;
+  }
+  .live-text { min-width: auto; }
+
+  @keyframes live-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
 
   /* ── Center zone ── */
   .center-zone {

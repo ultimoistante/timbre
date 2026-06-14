@@ -8,6 +8,7 @@ export const progress = writable(0);     // 0-1
 export const volume   = writable(1);
 export const quality  = writable('original'); // 'original'|'320k'|'128k'|'64k'
 export const container = writable('mp3');
+export const nowPlaying = writable('');  // live ICY title for the current web radio
 
 export const currentTrack = derived(
   [queue, queueIdx],
@@ -22,6 +23,24 @@ export const player = {
   },
   enqueue(tracks) {
     queue.update(q => [...q, ...tracks]);
+  },
+  /**
+   * Play a single web radio station. Streams are live (no seek/duration/queue),
+   * so the queue holds just this one item flagged isStream. The src points at
+   * the server proxy endpoint (handles http→https + ICY metadata).
+   */
+  playStream(station) {
+    nowPlaying.set('');
+    queue.set([{
+      isStream: true,
+      id: station.id,
+      title: station.name,
+      artists: station.genre || 'Web radio',
+      streamUrl: `/api/streams/${station.id}/play`,
+      favicon: station.favicon || ''
+    }]);
+    queueIdx.set(0);
+    playing.set(true);
   },
   next() {
     queueIdx.update(i => {
