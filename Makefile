@@ -15,11 +15,11 @@ backend:
 
 # Run backend only (assumes frontend already built).
 run: backend
-	MS_DATA_DIR=./data ./bin/timbre-server
+	TIMBRE_DATA_DIR=./data ./bin/timbre-server
 
 # Dev: run Vite dev server (proxies /api to :8080) alongside Go backend.
 dev:
-	@echo "Start backend: MS_DATA_DIR=./data go run ./cmd/server"
+	@echo "Start backend: TIMBRE_DATA_DIR=./data go run ./cmd/server"
 	@echo "Start frontend dev: cd web && npm run dev"
 
 test:

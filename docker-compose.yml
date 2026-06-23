@@ -6,11 +6,11 @@ services:
     volumes:
       - music_data:/data
     environment:
-      MS_DATA_DIR: /data
-      MS_PORT: "8080"
+      TIMBRE_DATA_DIR: /data
+      TIMBRE_PORT: "8080"
       # Switch to postgres by setting these + using the postgres service below:
-      # MS_DB_DRIVER: postgres
-      # MS_DB_DSN: "host=db user=music password=music dbname=music sslmode=disable"
+      # TIMBRE_DB_DRIVER: postgres
+      # TIMBRE_DB_DSN: "host=db user=music password=music dbname=music sslmode=disable"
     restart: unless-stopped
 
   # Optional Postgres (uncomment + update app env to use):

@@ -14,4 +14,4 @@ echo ">>> Building backend..."
 go build -o bin/timbre-server ./cmd/server
 
 echo ">>> Starting timbre-server..."
-MS_DATA_DIR=./data ./bin/timbre-server
+TIMBRE_DATA_DIR=./data ./bin/timbre-server

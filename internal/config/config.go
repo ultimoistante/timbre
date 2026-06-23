@@ -35,13 +35,13 @@ type Config struct {
 // the data directory and JWT secret exist.
 func Load() (*Config, error) {
 	c := &Config{
-		Host:       env("MS_HOST", "0.0.0.0"),
-		Port:       envInt("MS_PORT", 8080),
-		DataDir:    env("MS_DATA_DIR", "./data"),
-		DBDriver:   env("MS_DB_DRIVER", "sqlite"),
-		DBDSN:      env("MS_DB_DSN", ""),
-		AccessTTL:  time.Duration(envInt("MS_ACCESS_TTL_MIN", 30)) * time.Minute,
-		RefreshTTL: time.Duration(envInt("MS_REFRESH_TTL_DAYS", 30)) * 24 * time.Hour,
+		Host:       env("TIMBRE_HOST", "0.0.0.0"),
+		Port:       envInt("TIMBRE_PORT", 8080),
+		DataDir:    env("TIMBRE_DATA_DIR", "./data"),
+		DBDriver:   env("TIMBRE_DB_DRIVER", "sqlite"),
+		DBDSN:      env("TIMBRE_DB_DSN", ""),
+		AccessTTL:  time.Duration(envInt("TIMBRE_ACCESS_TTL_MIN", 30)) * time.Minute,
+		RefreshTTL: time.Duration(envInt("TIMBRE_REFRESH_TTL_DAYS", 30)) * 24 * time.Hour,
 	}
 
 	abs, err := filepath.Abs(c.DataDir)

@@ -23,10 +23,10 @@ RUN apk add --no-cache ffmpeg ca-certificates tzdata
 WORKDIR /app
 COPY --from=go-builder /timbre-server .
 
-ENV MS_DATA_DIR=/data \
-    MS_PORT=8080 \
-    MS_HOST=0.0.0.0 \
-    MS_DB_DRIVER=sqlite
+ENV TIMBRE_DATA_DIR=/data \
+    TIMBRE_PORT=8080 \
+    TIMBRE_HOST=0.0.0.0 \
+    TIMBRE_DB_DRIVER=sqlite
 
 EXPOSE 8080
 VOLUME ["/data"]

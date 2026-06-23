@@ -72,7 +72,7 @@ library.
 make build
 
 # 2. Run
-MS_DATA_DIR=./data ./bin/timbre-server
+TIMBRE_DATA_DIR=./data ./bin/timbre-server
 # → timbre listening on 0.0.0.0:8080 (data dir: ./data, db: sqlite)
 ```
 
@@ -82,7 +82,7 @@ Open <http://localhost:8080>. On first launch you'll be guided through
 Then:
 
 1. Upload or place your audio files under the user's media root
-   (`<MS_DATA_DIR>/users/<id>/`), or use the **Files** page to upload.
+   (`<TIMBRE_DATA_DIR>/users/<id>/`), or use the **Files** page to upload.
 2. Trigger a **scan** (the app does this from the UI; scan progress streams over
    SSE).
 3. Browse your **Library**, build **Playlists**, add **Streams**, and play.
@@ -95,22 +95,22 @@ All configuration is via environment variables.
 
 | Variable              | Default     | Description                                                        |
 |-----------------------|-------------|--------------------------------------------------------------------|
-| `MS_HOST`             | `0.0.0.0`   | Bind address.                                                      |
-| `MS_PORT`             | `8080`      | Listen port.                                                       |
-| `MS_DATA_DIR`         | `./data`    | Root for DB, per-user media (`<dir>/users/<id>`), JWT secret, art cache. |
-| `MS_DB_DRIVER`        | `sqlite`    | `sqlite` or `postgres`.                                            |
-| `MS_DB_DSN`           | *(empty)*   | DB connection string. For SQLite, empty ⇒ `<MS_DATA_DIR>/timbre.db`. |
-| `MS_ACCESS_TTL_MIN`   | `30`        | Access-token lifetime (minutes).                                  |
-| `MS_REFRESH_TTL_DAYS` | `30`        | Refresh-token lifetime (days).                                    |
+| `TIMBRE_HOST`             | `0.0.0.0`   | Bind address.                                                      |
+| `TIMBRE_PORT`             | `8080`      | Listen port.                                                       |
+| `TIMBRE_DATA_DIR`         | `./data`    | Root for DB, per-user media (`<dir>/users/<id>`), JWT secret, art cache. |
+| `TIMBRE_DB_DRIVER`        | `sqlite`    | `sqlite` or `postgres`.                                            |
+| `TIMBRE_DB_DSN`           | *(empty)*   | DB connection string. For SQLite, empty ⇒ `<TIMBRE_DATA_DIR>/timbre.db`. |
+| `TIMBRE_ACCESS_TTL_MIN`   | `30`        | Access-token lifetime (minutes).                                  |
+| `TIMBRE_REFRESH_TTL_DAYS` | `30`        | Refresh-token lifetime (days).                                    |
 
-The JWT signing secret is auto-generated at `<MS_DATA_DIR>/jwt.secret` on first
+The JWT signing secret is auto-generated at `<TIMBRE_DATA_DIR>/jwt.secret` on first
 run (32 random bytes, hex-encoded).
 
 **PostgreSQL example:**
 
 ```bash
-MS_DB_DRIVER=postgres \
-MS_DB_DSN="host=localhost user=timbre password=secret dbname=timbre sslmode=disable" \
+TIMBRE_DB_DRIVER=postgres \
+TIMBRE_DB_DSN="host=localhost user=timbre password=secret dbname=timbre sslmode=disable" \
 ./bin/timbre-server
 ```
 
@@ -220,7 +220,7 @@ Run the backend and the Vite dev server separately for hot-reload:
 
 ```bash
 # Terminal 1 — backend (serves /api on :8080)
-MS_DATA_DIR=./data go run ./cmd/server
+TIMBRE_DATA_DIR=./data go run ./cmd/server
 
 # Terminal 2 — frontend dev server (proxies /api to :8080)
 cd web && npm run dev   # http://localhost:5173
@@ -256,7 +256,7 @@ web/                   # SvelteKit frontend source
 | `make build`    | Build frontend, copy into the embed dir, build backend.   |
 | `make frontend` | `npm run build` then copy `web/build` → `internal/api/frontend`. |
 | `make backend`  | `go build -o bin/timbre-server ./cmd/server`.             |
-| `make run`      | Build backend and run with `MS_DATA_DIR=./data`.          |
+| `make run`      | Build backend and run with `TIMBRE_DATA_DIR=./data`.          |
 | `make test`     | Run Go tests.                                             |
 | `make clean`    | Remove build artifacts, embed dir, and `data/`.           |
 
