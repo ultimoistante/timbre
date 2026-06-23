@@ -14,6 +14,7 @@ import (
 	"github.com/ultimoistante/timbre/internal/events"
 	"github.com/ultimoistante/timbre/internal/scanner"
 	"github.com/ultimoistante/timbre/internal/storage"
+	"github.com/ultimoistante/timbre/internal/subsonic"
 )
 
 // Server holds shared dependencies for all handlers.
@@ -81,6 +82,11 @@ func (s *Server) registerRoutes() {
 	authed.GET("/me", s.handleMe)
 	authed.POST("/auth/logout", s.handleLogout)
 
+	// OpenSubsonic API token management (per-user, revocable secret).
+	authed.GET("/me/subsonic-token", s.handleGetSubsonicToken)
+	authed.POST("/me/subsonic-token", s.handleRotateSubsonicToken)
+	authed.DELETE("/me/subsonic-token", s.handleRevokeSubsonicToken)
+
 	// Filesystem CRUD (scoped to the authenticated user's media root).
 	fs := authed.Group("/fs")
 	fs.GET("/list", s.handleFSList)
@@ -134,4 +140,9 @@ func (s *Server) registerRoutes() {
 	// Admin endpoints.
 	admin := authed.Group("/admin", auth.RequireAdmin)
 	s.registerAdminRoutes(admin)
+
+	// OpenSubsonic API (/rest) for third-party player apps. Auth is handled by
+	// the Subsonic middleware (apiKey / token+salt / password), not JWT.
+	rest := s.e.Group("/rest", subsonic.Authenticate(s.db))
+	subsonic.Register(rest, subsonic.NewHandlers(s.db, s.store, s.cfg))
 }

@@ -21,8 +21,14 @@ type User struct {
 	PasswordHash string    `gorm:"not null" json:"-"`
 	Role         Role      `gorm:"not null;default:user" json:"role"`
 	QuotaBytes   int64     `gorm:"not null;default:0" json:"quotaBytes"` // 0 = unlimited
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	// SubsonicToken is a per-user, revocable secret used by the OpenSubsonic
+	// API (/rest). It is stored in plaintext on purpose: it is NOT the account
+	// password (which is bcrypt-hashed) but a token the user can rotate, and
+	// the Subsonic token-auth scheme (t=md5(token+salt)) requires the server to
+	// know it verbatim. Empty means Subsonic access is disabled for the user.
+	SubsonicToken string    `gorm:"index" json:"-"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
 // IsAdmin reports whether the user has administrative privileges.
@@ -101,6 +107,18 @@ type RadioStation struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// Star is a user's favorite (starred item) for the OpenSubsonic API. ItemID is
+// the opaque Subsonic id (e.g. "tr-12", "al-<hash>", "ar-<hash>"); ItemType is
+// "track", "album" or "artist". Timbre has no native favorites concept — this
+// table backs star/unstar/getStarred2 only.
+type Star struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"not null;uniqueIndex:idx_user_item" json:"userId"`
+	ItemID    string    `gorm:"not null;uniqueIndex:idx_user_item" json:"itemId"`
+	ItemType  string    `gorm:"not null" json:"itemType"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
 // AllModels returns every model for AutoMigrate.
 func AllModels() []any {
 	return []any{
@@ -109,5 +127,6 @@ func AllModels() []any {
 		&Playlist{},
 		&PlaylistTrack{},
 		&RadioStation{},
+		&Star{},
 	}
 }
