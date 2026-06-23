@@ -85,6 +85,7 @@ func (s *Server) registerRoutes() {
 	// OpenSubsonic API token management (per-user, revocable secret).
 	authed.GET("/me/subsonic-token", s.handleGetSubsonicToken)
 	authed.POST("/me/subsonic-token", s.handleRotateSubsonicToken)
+	authed.PUT("/me/subsonic-token", s.handleSetSubsonicToken)
 	authed.DELETE("/me/subsonic-token", s.handleRevokeSubsonicToken)
 
 	// Filesystem CRUD (scoped to the authenticated user's media root).

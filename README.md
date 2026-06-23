@@ -131,7 +131,16 @@ API under `/rest`, so third-party player apps can connect to your library.
 3. In your player app, enter the server URL and username, and use the **token as
    the password**. Most clients append `/rest` automatically.
 
-Tested against substreamer, Feishin, Symfonium and DSub.
+Tested against substreamer, Feishin, Symfonium, DSub and Tempo.
+
+**Easier entry on mobile.** The random token is long to type. The Settings page
+offers two shortcuts:
+
+- **Show QR** — renders the token as a QR code; scan it with your phone to copy
+  the token to the clipboard, then paste it into the app's password field.
+- **Set a custom password** — replace the token with your own memorable
+  passphrase (min 8 characters). It works exactly like the token across all auth
+  schemes — handy for clients without copy/paste.
 
 ### Authentication
 
@@ -151,7 +160,8 @@ Settings page, or via the native API:
 
 ```
 GET    /api/me/subsonic-token   # show current (404 if none)
-POST   /api/me/subsonic-token   # generate / rotate
+POST   /api/me/subsonic-token   # generate / rotate a random token
+PUT    /api/me/subsonic-token   # set a custom password  {"token":"..."}
 DELETE /api/me/subsonic-token   # revoke
 ```
 

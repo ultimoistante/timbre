@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import QRCode from 'qrcode';
   import { api } from '$lib/api/client.js';
 
   // token holds the active Subsonic credentials, or null when none is set.
@@ -10,8 +11,13 @@
   let revealed = false;
   let copied = '';        // which field was last copied
   let confirm = null;     // 'rotate' | 'revoke'
+  let customInput = '';   // user-chosen custom password
+  let showQr = false;
+  let qrDataUrl = '';
 
   onMount(loadToken);
+
+  function resetQr() { showQr = false; qrDataUrl = ''; }
 
   async function loadToken() {
     loading = true; error = '';
@@ -29,11 +35,38 @@
     try {
       token = await api.post('/me/subsonic-token');
       revealed = true;
+      resetQr();
     } catch (e) {
       error = e.message;
     }
     busy = false;
     confirm = null;
+  }
+
+  async function setCustom() {
+    if (customInput.trim().length < 8) { error = 'Token must be at least 8 characters'; return; }
+    busy = true; error = '';
+    try {
+      token = await api.put('/me/subsonic-token', { token: customInput.trim() });
+      revealed = true;
+      customInput = '';
+      resetQr();
+    } catch (e) {
+      error = e.message;
+    }
+    busy = false;
+  }
+
+  async function toggleQr() {
+    showQr = !showQr;
+    if (showQr && token) {
+      try {
+        qrDataUrl = await QRCode.toDataURL(token.token, { margin: 2, width: 220 });
+      } catch {
+        error = 'QR generation failed';
+        showQr = false;
+      }
+    }
   }
 
   async function revoke() {
@@ -42,6 +75,7 @@
       await api.delete('/me/subsonic-token');
       token = null;
       revealed = false;
+      resetQr();
     } catch (e) {
       error = e.message;
     }
@@ -119,8 +153,22 @@
             <button class="ghost" on:click={() => copy('token', token.token)}>
               {copied === 'token' ? 'Copied' : 'Copy'}
             </button>
+            <button class="ghost" on:click={toggleQr}>
+              {showQr ? 'Hide QR' : 'Show QR'}
+            </button>
           </div>
         </div>
+
+        {#if showQr && qrDataUrl}
+          <div class="qr-box">
+            <img src={qrDataUrl} alt="Token QR code" />
+            <p class="muted qr-hint">
+              Scan with your phone to copy the token, then paste it into the
+              app's password field. (Encodes the token only — enter the server
+              URL and username manually.)
+            </p>
+          </div>
+        {/if}
       </div>
 
       <div class="actions">
@@ -128,6 +176,28 @@
         <button class="danger" on:click={() => confirm = 'revoke'} disabled={busy}>Revoke</button>
       </div>
     {/if}
+
+    <div class="custom">
+      <h3 class="custom-title">Set a custom password</h3>
+      <p class="hint">
+        Prefer something you can type on a phone? Replace the token with your own
+        memorable password (min 8 characters). It works exactly like the token —
+        username + this password in your player app.
+      </p>
+      <form class="custom-form" on:submit|preventDefault={setCustom}>
+        <input
+          type="text"
+          bind:value={customInput}
+          placeholder="e.g. my-music-passphrase"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+        <button class="primary" type="submit" disabled={busy || customInput.trim().length < 8}>
+          {busy ? 'Saving…' : 'Set password'}
+        </button>
+      </form>
+    </div>
   </section>
 </div>
 
@@ -195,6 +265,36 @@
   .value.mono { font-family: ui-monospace, monospace; letter-spacing: 0.02em; }
 
   .actions { display: flex; gap: 10px; }
+
+  .qr-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: #222222;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+  }
+  .qr-box img {
+    width: 200px;
+    height: 200px;
+    border-radius: 6px;
+    background: #ffffff;
+    padding: 6px;
+  }
+  .qr-hint { text-align: center; max-width: 320px; line-height: 1.45; }
+
+  .custom {
+    border-top: 1px solid #2a2a2a;
+    padding-top: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .custom-title { font-size: 0.92rem; font-weight: 600; color: #ffffff; margin: 0; }
+  .custom-form { display: flex; gap: 10px; align-items: center; }
+  .custom-form input { flex: 1; }
 
   .primary { background: #2d4e2d; color: #bbf7d0; }
   .primary:hover { background: #356035; }
