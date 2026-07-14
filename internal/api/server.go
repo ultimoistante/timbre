@@ -102,6 +102,7 @@ func (s *Server) registerRoutes() {
 	// Upload / download.
 	authed.POST("/upload", s.handleUpload)
 	authed.GET("/download", s.handleDownload)
+	authed.POST("/download/zip", s.handleDownloadZip)
 
 	// Library scan + realtime events.
 	authed.POST("/scan", s.handleScan)

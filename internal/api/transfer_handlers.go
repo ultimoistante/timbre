@@ -2,6 +2,7 @@ package api
 
 import (
 	"archive/zip"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -129,4 +130,75 @@ func (s *Server) handleDownload(c echo.Context) error {
 		_, err = io.Copy(w, f)
 		return err
 	})
+}
+
+type zipBody struct {
+	Paths []string `json:"paths"`
+	Name  string   `json:"name"`
+}
+
+// handleDownloadZip streams an explicit list of files (e.g. an album's
+// tracks, which need not share a directory) as a single zip archive.
+func (s *Server) handleDownloadZip(c echo.Context) error {
+	var b zipBody
+	if err := c.Bind(&b); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid body")
+	}
+	if len(b.Paths) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "no paths")
+	}
+
+	// Resolve and validate every path before writing any response bytes, so a
+	// bad entry fails cleanly with 400 instead of a truncated zip.
+	abses := make([]string, 0, len(b.Paths))
+	for _, rel := range b.Paths {
+		abs, err := s.resolve(c, rel)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+		info, err := os.Stat(abs)
+		if err != nil || info.IsDir() {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid file: "+rel)
+		}
+		abses = append(abses, abs)
+	}
+
+	name := b.Name
+	if name == "" {
+		name = "download"
+	}
+	c.Response().Header().Set(echo.HeaderContentType, "application/zip")
+	c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="`+name+`.zip"`)
+	c.Response().WriteHeader(http.StatusOK)
+
+	zw := zip.NewWriter(c.Response())
+	defer zw.Close()
+
+	// Entries are named by base filename only, deduplicated by prefixing a
+	// counter on collision (e.g. multi-disc albums with same track names).
+	seen := make(map[string]int)
+	for _, abs := range abses {
+		base := filepath.Base(abs)
+		entryName := base
+		if n := seen[base]; n > 0 {
+			ext := filepath.Ext(base)
+			entryName = fmt.Sprintf("%s (%d)%s", base[:len(base)-len(ext)], n, ext)
+		}
+		seen[base]++
+
+		w, err := zw.Create(entryName)
+		if err != nil {
+			return err
+		}
+		f, err := os.Open(abs)
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(w, f); err != nil {
+			f.Close()
+			return err
+		}
+		f.Close()
+	}
+	return nil
 }

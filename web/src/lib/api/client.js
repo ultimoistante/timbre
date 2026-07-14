@@ -108,6 +108,20 @@ export const api = {
   delete: (path, opts)       => request('DELETE', path, null, opts),
   put:    (path, body, opts) => request('PUT',    path, body, opts),
 
+  /** Download an explicit list of files (rel paths) as a single zip archive. */
+  async downloadZip(paths, name) {
+    const res = await request('POST', '/download/zip', { paths, name });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name || 'download'}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
   /**
    * Upload files to destPath. Returns saved filenames.
    * onProgress, if given, is called with a 0..1 fraction as the upload streams.
