@@ -23,8 +23,44 @@
   let showQualityMenu = false;
   function toggleQualityMenu() { showQualityMenu = !showQualityMenu; }
 
+  // True while focus is on something that should keep its own keystrokes
+  // (text fields, selects) — playback shortcuts are suppressed there.
+  function isTypingTarget(el) {
+    if (!el) return false;
+    const tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+  }
+
+  // Same shortcuts as the Spotify desktop app: Space play/pause,
+  // Ctrl/Cmd+Left/Right prev/next, Ctrl/Cmd+Up/Down volume.
   function handleWindowKeydown(e) {
-    if (e.key === 'Escape' && showQualityMenu) showQualityMenu = false;
+    if (e.key === 'Escape' && showQualityMenu) { showQualityMenu = false; return; }
+    if (isTypingTarget(e.target)) return;
+
+    const mod = e.ctrlKey || e.metaKey;
+
+    // Skip Space when a focused button would already toggle on its own
+    // native activation (e.g. the play/pause button itself) to avoid a
+    // double-toggle.
+    if (!mod && e.code === 'Space' && e.target.tagName !== 'BUTTON') {
+      e.preventDefault();
+      if ($currentTrack) playing.update(v => !v);
+      return;
+    }
+
+    if (mod && e.key === 'ArrowRight') {
+      e.preventDefault();
+      if ($currentTrack && !isStream) { playing.set(true); queueIdx.update(i => (i + 1) % get(queue).length); }
+    } else if (mod && e.key === 'ArrowLeft') {
+      e.preventDefault();
+      if ($currentTrack && !isStream) { playing.set(true); queueIdx.update(i => Math.max(0, i - 1)); }
+    } else if (mod && e.key === 'ArrowUp') {
+      e.preventDefault();
+      volume.update(v => Math.min(1, +(v + 0.1).toFixed(2)));
+    } else if (mod && e.key === 'ArrowDown') {
+      e.preventDefault();
+      volume.update(v => Math.max(0, +(v - 0.1).toFixed(2)));
+    }
   }
 
   function handleQualityMenuBlur(e) {
