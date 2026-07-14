@@ -127,14 +127,15 @@
     {#if tracks.length === 0}
       <p class="muted">No tracks yet. Add tracks from the Library.</p>
     {:else}
-      <ul class="track-list">
+      <ul class="track-list" role="listbox" aria-label="Tracks">
         {#each tracks as track, i}
           {@const isPlaying = $currentTrack?.id === track.id}
           <li
             class:active={isPlaying}
             on:click={() => playFrom(i)}
-            on:keypress={() => playFrom(i)}
-            role="button"
+            on:keydown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), playFrom(i))}
+            role="option"
+            aria-selected={isPlaying}
             tabindex="0"
           >
             <span class="tn">
@@ -157,7 +158,7 @@
 <!-- Edit modal -->
 {#if editModal}
   <div class="modal-bg" on:click={() => editModal = false} on:keypress={() => editModal = false} role="button" tabindex="0">
-    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog">
+    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog" tabindex="-1">
       <h3>Edit Playlist</h3>
       <input bind:value={editName} placeholder="Playlist name" />
       <input bind:value={editDesc} placeholder="Description (optional)" />
@@ -176,7 +177,7 @@
 <!-- Delete confirm modal -->
 {#if deleteConfirm}
   <div class="modal-bg" on:click={() => deleteConfirm = false} on:keypress={() => deleteConfirm = false} role="button" tabindex="0">
-    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog">
+    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog" tabindex="-1">
       <h3>Delete "{playlist?.name}"?</h3>
       <p class="modal-warn">This action cannot be undone.</p>
       <div class="modal-btns">
@@ -263,7 +264,7 @@
   }
   .modal h3 { font-size: 1.1rem; color: #ffffff; margin: 0; }
   .modal-warn { font-size: 0.85rem; color: #888888; margin: 0; }
-  .modal input[type="text"], .modal input:not([type]) { width: 100%; }
+  .modal input:not([type]) { width: 100%; }
   .pin-label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: #cccccc; cursor: pointer; }
   .pin-label input { width: auto; cursor: pointer; }
   .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }

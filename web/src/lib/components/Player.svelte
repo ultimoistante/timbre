@@ -146,7 +146,7 @@
     on:ended={onEnded}
     on:error={onAudioError}
     preload="metadata"
-  />
+  ></audio>
 {/if}
 
 <div class="player">
@@ -281,7 +281,7 @@
       </button>
 
       {#if showQualityMenu}
-        <div class="quality-menu" role="dialog" aria-label="Playback options">
+        <div class="quality-menu" role="dialog" aria-label="Playback options" tabindex="-1">
           <label class="menu-label">
             Quality
             <select bind:value={$quality} title="Quality">

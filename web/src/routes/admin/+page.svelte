@@ -99,7 +99,7 @@
 
 {#if showCreateModal}
   <div class="modal-bg">
-    <div class="modal" role="dialog">
+    <div class="modal" role="dialog" tabindex="-1">
       <h3>Create user</h3>
       {#if createError}<p class="error">{createError}</p>{/if}
       <form class="create-form" on:submit|preventDefault={createUser}>
@@ -155,7 +155,7 @@
 
 {#if deleteTarget}
   <div class="modal-bg" on:click={() => deleteTarget = null} on:keypress={() => deleteTarget = null} role="button" tabindex="0">
-    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog">
+    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog" tabindex="-1">
       <h3>Delete "{deleteTarget.username}"?</h3>
       <p class="modal-warn">This will permanently delete the user and all their files.</p>
       <div class="modal-btns">

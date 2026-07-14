@@ -80,9 +80,15 @@
   {#if searchResults.length}
     <section>
       <h2>Search results</h2>
-      <ul class="track-list">
+      <ul class="track-list" role="listbox" aria-label="Search results">
         {#each searchResults as t, i}
-          <li on:click={() => playTrack(searchResults, i)} on:keypress={() => playTrack(searchResults, i)} role="button" tabindex="0">
+          <li
+            on:click={() => playTrack(searchResults, i)}
+            on:keydown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), playTrack(searchResults, i))}
+            role="option"
+            aria-selected="false"
+            tabindex="0"
+          >
             <span class="tn">—</span>
             <span class="t-title">{t.title}</span>
             <span class="t-artist">{t.artists}{t.album ? ' · ' + t.album : ''}</span>
@@ -136,9 +142,15 @@
     </div>
 
   {:else if view === 'tracks'}
-    <ul class="track-list">
+    <ul class="track-list" role="listbox" aria-label="Tracks">
       {#each tracks as t, i}
-        <li on:click={() => playTrack(tracks, i)} on:keypress={() => playTrack(tracks, i)} role="button" tabindex="0">
+        <li
+          on:click={() => playTrack(tracks, i)}
+          on:keydown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), playTrack(tracks, i))}
+          role="option"
+          aria-selected="false"
+          tabindex="0"
+        >
           <span class="tn">{t.trackNo || '—'}</span>
           <span class="t-title">{t.title}</span>
           <span class="t-artist">{t.artists}</span>
@@ -248,8 +260,5 @@
   .t-artist { font-size:0.8rem; color:#888888; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .t-dur { font-size:0.8rem; color:#888888; text-align:right; min-width:40px; flex-shrink:0; }
 
-  .muted { color:#888888; }
-  .back { background:none; color:#cccccc; margin-bottom:8px; padding:0; }
-  .back:hover { color:#ffffff; }
   h2 { font-size:1.2rem; }
 </style>

@@ -129,7 +129,7 @@
 
 {#if newModal}
   <div class="modal-bg" on:click={() => newModal = false} on:keypress={() => newModal = false} role="button" tabindex="0">
-    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog">
+    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog" tabindex="-1">
       <h3>New Playlist</h3>
       <input bind:value={newName} placeholder="Playlist name" on:keydown={e => e.key === 'Enter' && createPlaylist()} />
       <input bind:value={newDesc} placeholder="Description (optional)" />

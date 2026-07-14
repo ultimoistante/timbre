@@ -8,6 +8,8 @@
   let selected = new Set();
   let dragging = false;
   let error = '';
+  let uploading = false;
+  let uploadProgress = 0;
 
   // Modals
   let mkdirModal = false, mkdirName = '';
@@ -51,11 +53,16 @@
   // Upload
   function handleDrop(e) {
     dragging = false;
+    if (uploading) return;
     const files = [...e.dataTransfer.files];
     if (files.length) upload(files);
   }
   async function upload(files) {
-    await api.upload(currentPath, files).catch(e => error = e.message);
+    uploading = true;
+    uploadProgress = 0;
+    await api.upload(currentPath, files, p => uploadProgress = p).catch(e => error = e.message);
+    uploading = false;
+    uploadProgress = 0;
     loadDir(currentPath);
   }
   function openFilePicker() {
@@ -141,7 +148,7 @@
     </nav>
 
     <div class="actions">
-      <button on:click={openFilePicker}>Upload</button>
+      <button on:click={openFilePicker} disabled={uploading}>Upload</button>
       <button on:click={() => { mkdirModal=true; mkdirName=''; }}>New Folder</button>
       {#if selected.size > 0}
         <button on:click={downloadSelected}>Download</button>
@@ -154,6 +161,13 @@
   </div>
 
   {#if error}<p class="error">{error}</p>{/if}
+
+  {#if uploading}
+    <div class="upload-progress" role="progressbar" aria-valuenow={Math.round(uploadProgress * 100)} aria-valuemin="0" aria-valuemax="100">
+      <div class="upload-progress-bar" style="width: {Math.round(uploadProgress * 100)}%"></div>
+      <span class="upload-progress-label">Uploading… {Math.round(uploadProgress * 100)}%</span>
+    </div>
+  {/if}
 
   <!-- Drop zone -->
   <div
@@ -209,7 +223,7 @@
 <!-- Modals -->
 {#if mkdirModal}
   <div class="modal-bg" on:click={() => mkdirModal=false} on:keypress={() => mkdirModal=false} role="button" tabindex="0">
-    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog">
+    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog" tabindex="-1">
       <h3>New Folder</h3>
       <input bind:value={mkdirName} placeholder="folder name" on:keydown={e => e.key==='Enter' && doMkdir()} />
       <div class="modal-btns">
@@ -222,7 +236,7 @@
 
 {#if renameModal}
   <div class="modal-bg" on:click={() => renameModal=false} on:keypress={() => renameModal=false} role="button" tabindex="0">
-    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog">
+    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog" tabindex="-1">
       <h3>Rename</h3>
       <input bind:value={renameVal} placeholder="new name" on:keydown={e => e.key==='Enter' && doRename()} />
       <div class="modal-btns">
@@ -235,7 +249,7 @@
 
 {#if moveModal}
   <div class="modal-bg" on:click={() => moveModal=false} on:keypress={() => moveModal=false} role="button" tabindex="0">
-    <div class="modal modal-wide" on:click|stopPropagation on:keypress|stopPropagation role="dialog">
+    <div class="modal modal-wide" on:click|stopPropagation on:keypress|stopPropagation role="dialog" tabindex="-1">
       <h3>Move to</h3>
       <TreePicker bind:value={moveDst} />
       <div class="modal-btns">
@@ -248,7 +262,7 @@
 
 {#if deleteModal}
   <div class="modal-bg" on:click={() => deleteModal=false} on:keypress={() => deleteModal=false} role="button" tabindex="0">
-    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog">
+    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog" tabindex="-1">
       <h3>Delete {selected.size} item{selected.size !== 1 ? 's' : ''}?</h3>
       <p class="modal-warn">This action cannot be undone.</p>
       <div class="modal-btns">
@@ -261,7 +275,7 @@
 
 {#if copyModal}
   <div class="modal-bg" on:click={() => copyModal=false} on:keypress={() => copyModal=false} role="button" tabindex="0">
-    <div class="modal modal-wide" on:click|stopPropagation on:keypress|stopPropagation role="dialog">
+    <div class="modal modal-wide" on:click|stopPropagation on:keypress|stopPropagation role="dialog" tabindex="-1">
       <h3>Copy to</h3>
       <TreePicker bind:value={copyDst} />
       <div class="modal-btns">
@@ -282,6 +296,19 @@
   .sep { color:#444444; font-size:0.85rem; user-select:none; }
   .actions { display:flex; gap:6px; flex-wrap:wrap; }
   .error { color:#f87171; font-size:0.85rem; }
+
+  .upload-progress {
+    position: relative; height: 22px; border-radius: 6px; background: #222222;
+    overflow: hidden; font-size: 0.78rem;
+  }
+  .upload-progress-bar {
+    position: absolute; inset: 0 auto 0 0; background: #3b82f6;
+    transition: width 150ms ease;
+  }
+  .upload-progress-label {
+    position: relative; z-index: 1; display: flex; height: 100%;
+    align-items: center; justify-content: center; color: #ffffff;
+  }
   .danger { background:#7f1d1d; }
   .danger:hover { background:#991b1b; }
 

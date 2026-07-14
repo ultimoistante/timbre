@@ -113,7 +113,7 @@
 <svelte:window on:keydown={onKeydown} />
 
 <div class="backdrop" on:click={close} role="presentation">
-  <div class="modal" on:click|stopPropagation role="dialog" aria-modal="true">
+  <div class="modal" on:click|stopPropagation on:keydown={() => {}} role="dialog" aria-modal="true" tabindex="-1">
     <h2>{mode === 'album' ? 'Edit album' : 'Edit track'}</h2>
 
     {#if error}<p class="err">{error}</p>{/if}

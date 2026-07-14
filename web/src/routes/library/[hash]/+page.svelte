@@ -193,14 +193,15 @@
       </div>
     </div>
 
-    <ul class="track-list">
+    <ul class="track-list" role="listbox" aria-label="Tracks">
       {#each tracks as track, i}
         {@const isPlaying = $currentTrack?.id === track.id}
         <li
           class:active={isPlaying}
           on:click={() => playFrom(i)}
-          on:keypress={() => playFrom(i)}
-          role="button"
+          on:keydown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), playFrom(i))}
+          role="option"
+          aria-selected={isPlaying}
           tabindex="0"
         >
           <span class="tn">

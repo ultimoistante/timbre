@@ -211,7 +211,7 @@
 
 {#if confirm}
   <div class="modal-bg" on:click={() => confirm = null} on:keypress={() => confirm = null} role="button" tabindex="0">
-    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog">
+    <div class="modal" on:click|stopPropagation on:keypress|stopPropagation role="dialog" tabindex="-1">
       {#if confirm === 'rotate'}
         <h3>Regenerate token?</h3>
         <p class="modal-warn">The current token stops working immediately. Every connected app must be reconfigured with the new token.</p>
