@@ -1,5 +1,4 @@
 <script>
-  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { api } from '$lib/api/client.js';
@@ -41,6 +40,8 @@
     const { albumHash: newHash } = ev.detail;
     editAlbum = false;
     if (newHash && newHash !== hash) {
+      // goto() re-uses this component instance (same route, new param), so
+      // the hash-keyed loader below picks up the navigation and refetches.
       goto('/library/' + newHash);
     } else {
       reload();
@@ -109,15 +110,25 @@
     hash: tracks[0].albumHash,
   } : null;
 
-  onMount(async () => {
+  // Editing name/artist changes the derived albumHash, and onAlbumSaved
+  // navigates to the new one — but SvelteKit reuses this component instance
+  // for a same-route navigation, so onMount alone would never refetch. Key
+  // the load off `hash` instead, so every hash change (initial load or a
+  // post-edit navigation) reloads.
+  let loadedHash = null;
+  $: if (hash && hash !== loadedHash) loadForHash(hash);
+
+  async function loadForHash(h) {
+    loading = true;
     try {
-      tracks = await api.get('/albums/' + hash) ?? [];
+      tracks = await api.get('/albums/' + h) ?? [];
     } catch (e) {
       tracks = [];
     } finally {
       loading = false;
+      loadedHash = h;
     }
-  });
+  }
 
   function playFrom(idx) {
     player.play(tracks, idx);
