@@ -9,7 +9,15 @@
   let dragging = false;
   let error = '';
   let uploading = false;
-  let uploadProgress = 0;
+  let uploadModal = false;
+  let uploadItems = []; // { name, size, progress, status: 'pending'|'uploading'|'done'|'error', error }
+  const UPLOAD_CONCURRENCY = 3;
+
+  $: uploadOverall = uploadItems.length
+    ? uploadItems.reduce((sum, it) => sum + it.progress, 0) / uploadItems.length
+    : 0;
+  $: uploadDoneCount = uploadItems.filter(it => it.status === 'done' || it.status === 'error').length;
+  $: uploadHasErrors = uploadItems.some(it => it.status === 'error');
 
   // Modals
   let mkdirModal = false, mkdirName = '';
@@ -59,11 +67,36 @@
   }
   async function upload(files) {
     uploading = true;
-    uploadProgress = 0;
-    await api.upload(currentPath, files, p => uploadProgress = p).catch(e => error = e.message);
+    uploadModal = true;
+    uploadItems = files.map(f => ({ name: f.name, size: f.size, progress: 0, status: 'pending', error: '' }));
+
+    let next = 0;
+    async function worker() {
+      while (next < files.length) {
+        const i = next++;
+        const item = uploadItems[i];
+        item.status = 'uploading';
+        uploadItems = uploadItems;
+        try {
+          await api.upload(currentPath, [files[i]], p => { item.progress = p; uploadItems = uploadItems; });
+          item.progress = 1;
+          item.status = 'done';
+        } catch (e) {
+          item.status = 'error';
+          item.error = e.message;
+        }
+        uploadItems = uploadItems;
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, files.length) }, worker));
+
     uploading = false;
-    uploadProgress = 0;
     loadDir(currentPath);
+  }
+
+  function closeUploadModal() {
+    uploadModal = false;
+    uploadItems = [];
   }
   function openFilePicker() {
     const input = document.createElement('input');
@@ -161,13 +194,6 @@
   </div>
 
   {#if error}<p class="error">{error}</p>{/if}
-
-  {#if uploading}
-    <div class="upload-progress" role="progressbar" aria-valuenow={Math.round(uploadProgress * 100)} aria-valuemin="0" aria-valuemax="100">
-      <div class="upload-progress-bar" style="width: {Math.round(uploadProgress * 100)}%"></div>
-      <span class="upload-progress-label">Uploading… {Math.round(uploadProgress * 100)}%</span>
-    </div>
-  {/if}
 
   <!-- Drop zone -->
   <div
@@ -286,6 +312,54 @@
   </div>
 {/if}
 
+{#if uploadModal}
+  <div class="modal-bg">
+    <div class="modal modal-wide" role="dialog" aria-modal="true" tabindex="-1">
+      <h3>{uploading ? 'Uploading files…' : uploadHasErrors ? 'Upload finished with errors' : 'Upload complete'}</h3>
+
+      <div class="upload-overall" role="progressbar" aria-valuenow={Math.round(uploadOverall * 100)} aria-valuemin="0" aria-valuemax="100">
+        <div class="upload-overall-bar" style="width: {Math.round(uploadOverall * 100)}%"></div>
+        <span class="upload-overall-label">{uploadDoneCount} / {uploadItems.length} · {Math.round(uploadOverall * 100)}%</span>
+      </div>
+
+      <ul class="upload-list">
+        {#each uploadItems as item}
+          <li class="upload-item">
+            <span class="upload-item-icon">
+              {#if item.status === 'done'}
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              {:else if item.status === 'error'}
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              {:else if item.status === 'uploading'}
+                <span class="spinner"></span>
+              {:else}
+                <span class="upload-item-pending">·</span>
+              {/if}
+            </span>
+            <span class="upload-item-name" title={item.name}>{item.name}</span>
+            <span class="upload-item-size">{fmtSize(item.size)}</span>
+            <span class="upload-item-status">
+              {#if item.status === 'error'}
+                <span class="upload-item-error" title={item.error}>{item.error}</span>
+              {:else if item.status === 'uploading'}
+                {Math.round(item.progress * 100)}%
+              {:else if item.status === 'done'}
+                Done
+              {:else}
+                Queued
+              {/if}
+            </span>
+          </li>
+        {/each}
+      </ul>
+
+      <div class="modal-btns">
+        <button class="cancel" on:click={closeUploadModal} disabled={uploading}>{uploading ? 'Uploading…' : 'Close'}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .files-page { display:flex; flex-direction:column; gap:16px; }
   .toolbar { display:flex; flex-direction:column; gap:10px; }
@@ -297,18 +371,6 @@
   .actions { display:flex; gap:6px; flex-wrap:wrap; }
   .error { color:#f87171; font-size:0.85rem; }
 
-  .upload-progress {
-    position: relative; height: 22px; border-radius: 6px; background: #222222;
-    overflow: hidden; font-size: 0.78rem;
-  }
-  .upload-progress-bar {
-    position: absolute; inset: 0 auto 0 0; background: #3b82f6;
-    transition: width 150ms ease;
-  }
-  .upload-progress-label {
-    position: relative; z-index: 1; display: flex; height: 100%;
-    align-items: center; justify-content: center; color: #ffffff;
-  }
   .danger { background:#7f1d1d; }
   .danger:hover { background:#991b1b; }
 
@@ -343,4 +405,41 @@
   .modal input { width:100%; }
   .modal-btns { display:flex; gap:8px; justify-content:flex-end; }
   .cancel { background:#222222; }
+
+  .upload-overall {
+    position: relative; height: 22px; border-radius: 6px; background: #222222;
+    overflow: hidden; font-size: 0.78rem; flex-shrink: 0;
+  }
+  .upload-overall-bar {
+    position: absolute; inset: 0 auto 0 0; background: #3b82f6;
+    transition: width 150ms ease;
+  }
+  .upload-overall-label {
+    position: relative; z-index: 1; display: flex; height: 100%;
+    align-items: center; justify-content: center; color: #ffffff;
+  }
+
+  .upload-list {
+    list-style: none; display: flex; flex-direction: column; gap: 2px;
+    max-height: 260px; overflow-y: auto;
+  }
+  .upload-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 4px; font-size: 0.8rem; border-bottom: 1px solid #222222;
+  }
+  .upload-item-icon { display: flex; align-items: center; justify-content: center; width: 16px; flex-shrink: 0; }
+  .upload-item-pending { color: #555555; }
+  .upload-item-name {
+    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ffffff;
+  }
+  .upload-item-size { color: #666666; flex-shrink: 0; }
+  .upload-item-status { color: #888888; flex-shrink: 0; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .upload-item-error { color: #f87171; }
+
+  .spinner {
+    width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid #444444; border-top-color: #3b82f6;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
