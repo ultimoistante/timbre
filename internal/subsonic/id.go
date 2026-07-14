@@ -18,6 +18,7 @@ func AlbumID(hash string) string  { return "al-" + hash }
 func ArtistID(hash string) string { return "ar-" + hash }
 func PlaylistID(id uint) string   { return "pl-" + strconv.FormatUint(uint64(id), 10) }
 func CoverID(hash string) string  { return "co-" + hash }
+func RadioID(id uint) string      { return "rd-" + strconv.FormatUint(uint64(id), 10) }
 
 // Kind classifies a parsed Subsonic id.
 type Kind int
@@ -29,6 +30,7 @@ const (
 	KindArtist
 	KindPlaylist
 	KindCover
+	KindRadio
 )
 
 // ParsedID is the decoded form of an opaque Subsonic id.
@@ -79,6 +81,12 @@ func ParseID(s string) (ParsedID, error) {
 			return ParsedID{}, errors.New("bad cover hash")
 		}
 		return ParsedID{Kind: KindCover, Hash: rest}, nil
+	case "rd":
+		n, err := strconv.ParseUint(rest, 10, 64)
+		if err != nil {
+			return ParsedID{}, err
+		}
+		return ParsedID{Kind: KindRadio, UintID: uint(n)}, nil
 	}
 	return ParsedID{}, errors.New("unknown id prefix")
 }

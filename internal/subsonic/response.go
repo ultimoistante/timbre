@@ -70,6 +70,7 @@ type Response struct {
 	User                   *SubsonicUser     `xml:"user,omitempty" json:"user,omitempty"`
 	ScanStatus             *ScanStatus       `xml:"scanStatus,omitempty" json:"scanStatus,omitempty"`
 	OpenSubsonicExtensions []OSExtension     `xml:"openSubsonicExtension,omitempty" json:"openSubsonicExtensions,omitempty"`
+	InternetRadioStations  *InternetRadioStations `xml:"internetRadioStations,omitempty" json:"internetRadioStations,omitempty"`
 }
 
 // Error is the Subsonic error element.
@@ -284,6 +285,19 @@ type SubsonicUser struct {
 type ScanStatus struct {
 	Scanning bool `xml:"scanning,attr" json:"scanning"`
 	Count    int  `xml:"count,attr" json:"count"`
+}
+
+// InternetRadioStations wraps the getInternetRadioStations payload.
+type InternetRadioStations struct {
+	InternetRadioStation []InternetRadioStation `xml:"internetRadioStation" json:"internetRadioStation"`
+}
+
+// InternetRadioStation is one saved web radio (Timbre's RadioStation, adapted).
+type InternetRadioStation struct {
+	ID          string `xml:"id,attr" json:"id"`
+	Name        string `xml:"name,attr" json:"name"`
+	StreamURL   string `xml:"streamUrl,attr" json:"streamUrl"`
+	HomePageURL string `xml:"homePageUrl,attr,omitempty" json:"homePageUrl,omitempty"`
 }
 
 // OSExtension advertises one OpenSubsonic extension.

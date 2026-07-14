@@ -59,4 +59,10 @@ func Register(g *echo.Group, h *Handlers) {
 	reg("setRating", h.setRating)
 	reg("getStarred", h.getStarred)
 	reg("getStarred2", h.getStarred2)
+
+	// Internet radio.
+	reg("getInternetRadioStations", h.getInternetRadioStations)
+	reg("createInternetRadioStation", h.createInternetRadioStation)
+	reg("updateInternetRadioStation", h.updateInternetRadioStation)
+	reg("deleteInternetRadioStation", h.deleteInternetRadioStation)
 }
