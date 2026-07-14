@@ -44,19 +44,19 @@
 
 <div class="page">
   <div class="page-header">
-    <div>
-      <h1>Playlists</h1>
-      {#if !loading}
-        <p class="subtitle">You have {playlists.length} playlist{playlists.length !== 1 ? 's' : ''} in your library</p>
-      {/if}
-    </div>
+    <h1>Playlists</h1>
+    {#if !loading}
+      <p class="subtitle">You have {playlists.length} playlist{playlists.length !== 1 ? 's' : ''} in your library</p>
+    {/if}
+  </div>
+
+  <div class="search-row">
+    <input class="search" placeholder="Search playlists" bind:value={search} />
     <button class="new-btn" on:click={() => { newModal = true; newName = ''; newDesc = ''; }}>
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       New Playlist
     </button>
   </div>
-
-  <input class="search" placeholder="Search playlists" bind:value={search} />
 
   {#if loading}
     <p class="muted">Loading…</p>
@@ -146,15 +146,16 @@
 <style>
   .page { display: flex; flex-direction: column; gap: 24px; }
 
-  .page-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-  }
+  .page-header { display: flex; flex-direction: column; }
 
   h1 { font-size: 2rem; font-weight: 700; color: #ffffff; margin: 0; }
   .subtitle { font-size: 0.85rem; color: #888888; margin-top: 4px; }
+
+  .search-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
 
   .new-btn {
     display: flex;
