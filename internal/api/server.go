@@ -117,6 +117,7 @@ func (s *Server) registerRoutes() {
 	authed.GET("/albums/:hash/art", s.handleAlbumArt)
 	authed.GET("/albums/:hash/art/search", s.handleSearchAlbumArt)
 	authed.PUT("/albums/:hash/art", s.handleSetAlbumArt)
+	authed.POST("/albums/:hash/art/upload", s.handleUploadAlbumArt)
 	authed.GET("/artists", s.handleArtists)
 	authed.GET("/search", s.handleSearch)
 	authed.GET("/recently-added", s.handleRecentlyAdded)

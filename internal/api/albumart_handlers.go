@@ -123,31 +123,89 @@ func (s *Server) handleSetAlbumArt(c echo.Context) error {
 		return c.JSON(http.StatusBadGateway, map[string]string{"error": err.Error()})
 	}
 
-	var tracks []models.MediaFile
-	if err := s.db.Where("user_id = ? AND album_hash = ?", u.ID, albumHash).
-		Find(&tracks).Error; err != nil {
+	tracks, err := s.albumTracksForArt(u.ID, albumHash)
+	if err != nil {
 		return err
 	}
 	if len(tracks) == 0 {
 		return c.NoContent(http.StatusNotFound)
 	}
 
+	s.embedAlbumArt(u.ID, tracks, albumHash, img)
+	return c.NoContent(http.StatusNoContent)
+}
+
+// handleUploadAlbumArt embeds a user-uploaded image file as the front cover
+// into every track file of the album, then refreshes the art cache. Same
+// effect as handleSetAlbumArt, but the image comes from a local upload
+// instead of a URL.
+func (s *Server) handleUploadAlbumArt(c echo.Context) error {
+	u := auth.CurrentUser(c)
+	albumHash := c.Param("hash")
+	if !validHash.MatchString(albumHash) {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	fh, err := c.FormFile("file")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "file required"})
+	}
+	src, err := fh.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	data, err := io.ReadAll(io.LimitReader(src, maxArtBytes+1))
+	if err != nil {
+		return err
+	}
+	if len(data) > maxArtBytes {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "image too large"})
+	}
+	if ct := http.DetectContentType(data); !strings.HasPrefix(ct, "image/") {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "not an image"})
+	}
+
+	tracks, err := s.albumTracksForArt(u.ID, albumHash)
+	if err != nil {
+		return err
+	}
+	if len(tracks) == 0 {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	s.embedAlbumArt(u.ID, tracks, albumHash, data)
+	return c.NoContent(http.StatusNoContent)
+}
+
+// albumTracksForArt loads every track of a user's album (needed to embed
+// cover art file-by-file, since art lives in each file's own tags).
+func (s *Server) albumTracksForArt(userID uint, albumHash string) ([]models.MediaFile, error) {
+	var tracks []models.MediaFile
+	if err := s.db.Where("user_id = ? AND album_hash = ?", userID, albumHash).
+		Find(&tracks).Error; err != nil {
+		return nil, err
+	}
+	return tracks, nil
+}
+
+// embedAlbumArt writes img as the front cover of every given track file and
+// refreshes the on-disk art cache so GET .../art serves it immediately.
+// Per-file embed failures are ignored (best-effort across the whole album).
+func (s *Server) embedAlbumArt(userID uint, tracks []models.MediaFile, albumHash string, img []byte) {
 	for i := range tracks {
-		abs, err := s.store.Resolve(u.ID, tracks[i].RelPath)
+		abs, err := s.store.Resolve(userID, tracks[i].RelPath)
 		if err != nil {
 			continue
 		}
 		_ = taglib.WriteImage(abs, img)
 	}
 
-	// Refresh the on-disk cache so GET .../art serves the new image. Clients
-	// must cache-bust the URL (the cache is served immutable).
+	// Clients must cache-bust the URL (the cache is served immutable).
 	cacheDir := filepath.Join(s.cfg.DataDir, "art")
 	if err := os.MkdirAll(cacheDir, 0o755); err == nil {
 		_ = os.WriteFile(filepath.Join(cacheDir, albumHash), img, 0o644)
 	}
-
-	return c.NoContent(http.StatusNoContent)
 }
 
 // downloadImage fetches url and returns the bytes, enforcing scheme, size and

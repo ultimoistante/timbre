@@ -33,6 +33,8 @@
   let artError = '';
   let artApplying = '';   // url currently being applied
   let artDone = false;
+  let artUploading = false;
+  let artFileInput;
 
   async function searchArt() {
     artLoading = true;
@@ -59,6 +61,25 @@
       artError = e.message || 'Failed to apply';
     } finally {
       artApplying = '';
+    }
+  }
+
+  async function uploadArt(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+    artUploading = true;
+    artError = '';
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      await api.post(`/albums/${hash}/art/upload`, fd);
+      artDone = true;
+      dispatch('artUpdated');
+    } catch (e) {
+      artError = e.message || 'Upload failed';
+    } finally {
+      artUploading = false;
     }
   }
 
@@ -165,9 +186,15 @@
       <div class="art-section">
         <div class="art-head">
           <span class="art-label">Cover art</span>
-          <button class="art-search-btn" on:click={searchArt} disabled={artLoading}>
-            {artLoading ? 'Searching…' : 'Search web'}
-          </button>
+          <div class="art-head-btns">
+            <button class="art-search-btn" on:click={searchArt} disabled={artLoading || artUploading}>
+              {artLoading ? 'Searching…' : 'Search web'}
+            </button>
+            <button class="art-search-btn" on:click={() => artFileInput.click()} disabled={artLoading || artUploading}>
+              {artUploading ? 'Uploading…' : 'Upload'}
+            </button>
+            <input type="file" accept="image/*" bind:this={artFileInput} on:change={uploadArt} hidden />
+          </div>
         </div>
 
         {#if artDone}
@@ -291,6 +318,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+  }
+  .art-head-btns {
+    display: flex;
+    gap: 8px;
   }
   .art-label {
     font-size: 0.72rem;
