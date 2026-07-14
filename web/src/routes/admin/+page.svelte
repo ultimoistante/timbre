@@ -6,6 +6,7 @@
 
   let users = [];
   let error = '';
+  let createError = '';
   let newUser = { username: '', password: '', confirmPassword: '', role: 'user', quotaMb: 0 };
   let creating = false;
   let deleteTarget = null;
@@ -24,18 +25,18 @@
 
   async function createUser() {
     if (newUser.password !== newUser.confirmPassword) {
-      error = 'Passwords do not match';
+      createError = 'Passwords do not match';
       return;
     }
-    creating = true; error = '';
+    creating = true; createError = '';
     await api.post('/admin/users', {
       username: newUser.username,
       password: newUser.password,
       role: newUser.role,
       quotaBytes: Math.round(newUser.quotaMb * 1024 * 1024)
-    }).catch(e => error = e.message);
+    }).catch(e => createError = e.message);
     creating = false;
-    if (!error) {
+    if (!createError) {
       newUser = { username: '', password: '', confirmPassword: '', role: 'user', quotaMb: 0 };
       showPassword = false;
       showConfirmPassword = false;
@@ -63,7 +64,7 @@
   <section>
     <div class="section-header">
       <h2>All Users</h2>
-      <button class="add-btn" on:click={() => { showCreateModal = true; }}>Add user</button>
+      <button class="add-btn" on:click={() => { createError = ''; showCreateModal = true; }}>Add user</button>
     </div>
     <table class="user-table">
       <thead>
@@ -100,6 +101,7 @@
   <div class="modal-bg">
     <div class="modal" role="dialog">
       <h3>Create user</h3>
+      {#if createError}<p class="error">{createError}</p>{/if}
       <form class="create-form" on:submit|preventDefault={createUser}>
         <label class="field">
           Username
@@ -144,7 +146,7 @@
         </label>
         <div class="modal-btns">
           <button type="submit" disabled={creating}>{creating ? 'Creating…' : 'Create user'}</button>
-          <button type="button" class="cancel" on:click={() => showCreateModal = false}>Cancel</button>
+          <button type="button" class="cancel" on:click={() => { showCreateModal = false; createError = ''; }}>Cancel</button>
         </div>
       </form>
     </div>
