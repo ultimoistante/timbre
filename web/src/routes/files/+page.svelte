@@ -13,6 +13,15 @@
   let uploadItems = []; // { name, size, progress, status: 'pending'|'uploading'|'done'|'error', error }
   const UPLOAD_CONCURRENCY = 3;
 
+  // Extensions recognised by the library scanner (internal/scanner/tagger.go).
+  // A recursive folder upload is filtered to these — folders routinely carry
+  // cover art, playlists, .DS_Store/Thumbs.db etc. that the library can't use.
+  const AUDIO_EXTS = ['.mp3', '.flac', '.ogg', '.opus', '.m4a', '.aac', '.wav', '.wma', '.aiff', '.aif', '.alac'];
+  function isAudioFile(name) {
+    const i = name.lastIndexOf('.');
+    return i >= 0 && AUDIO_EXTS.includes(name.slice(i).toLowerCase());
+  }
+
   $: uploadOverall = uploadItems.length
     ? uploadItems.reduce((sum, it) => sum + it.progress, 0) / uploadItems.length
     : 0;
@@ -65,20 +74,29 @@
     const files = [...e.dataTransfer.files];
     if (files.length) upload(files);
   }
-  async function upload(files) {
+  // files: plain File[], all uploaded flat into currentPath.
+  function upload(files) {
+    runUpload(files.map(file => ({ file, destDir: currentPath, relName: file.name })));
+  }
+
+  // Shared upload engine: each item carries its own destination dir, so a
+  // recursive folder upload can recreate the folder's subdirectory structure
+  // (the backend mkdir -p's destDir per request) while a flat multi-file
+  // upload just sends them all to currentPath.
+  async function runUpload(items) {
     uploading = true;
     uploadModal = true;
-    uploadItems = files.map(f => ({ name: f.name, size: f.size, progress: 0, status: 'pending', error: '' }));
+    uploadItems = items.map(it => ({ name: it.relName, size: it.file.size, progress: 0, status: 'pending', error: '' }));
 
     let next = 0;
     async function worker() {
-      while (next < files.length) {
+      while (next < items.length) {
         const i = next++;
         const item = uploadItems[i];
         item.status = 'uploading';
         uploadItems = uploadItems;
         try {
-          await api.upload(currentPath, [files[i]], p => { item.progress = p; uploadItems = uploadItems; });
+          await api.upload(items[i].destDir, [items[i].file], p => { item.progress = p; uploadItems = uploadItems; });
           item.progress = 1;
           item.status = 'done';
         } catch (e) {
@@ -88,7 +106,7 @@
         uploadItems = uploadItems;
       }
     }
-    await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, files.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, items.length) }, worker));
 
     uploading = false;
     loadDir(currentPath);
@@ -102,6 +120,29 @@
     const input = document.createElement('input');
     input.type = 'file'; input.multiple = true;
     input.onchange = () => upload([...input.files]);
+    input.click();
+  }
+
+  // Recursive folder upload: the browser expands the chosen directory into a
+  // flat File[] with webkitRelativePath set to the path inside that folder
+  // (e.g. "Album/Disc 1/01.mp3"). Non-audio files (art, .cue, .DS_Store, ...)
+  // are dropped; the rest keep their subfolder structure under currentPath.
+  function openFolderPicker() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.webkitdirectory = true;
+    input.directory = true;
+    input.multiple = true;
+    input.onchange = () => {
+      const items = [...input.files]
+        .filter(f => isAudioFile(f.name))
+        .map(f => {
+          const rel = f.webkitRelativePath || f.name;
+          const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '';
+          return { file: f, destDir: join(currentPath, dir), relName: rel };
+        });
+      if (items.length) runUpload(items);
+    };
     input.click();
   }
 
@@ -181,7 +222,8 @@
     </nav>
 
     <div class="actions">
-      <button on:click={openFilePicker} disabled={uploading}>Upload</button>
+      <button on:click={openFilePicker} disabled={uploading}>Upload files</button>
+      <button on:click={openFolderPicker} disabled={uploading}>Upload Folder</button>
       <button on:click={() => { mkdirModal=true; mkdirName=''; }}>New Folder</button>
       {#if selected.size > 0}
         <button on:click={downloadSelected}>Download</button>
