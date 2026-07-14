@@ -167,7 +167,7 @@ docker image prune -f          # optional: drop the old image layers
 ```bash
 # On the Alpine guest, as root:
 apk update
-apk add ffmpeg ca-certificates tzdata go nodejs npm git
+apk add ffmpeg ca-certificates tzdata go nodejs npm git make
 
 # Check the Go version matches go.mod's requirement (go 1.26+); if the apk
 # package is older, install the toolchain from https://go.dev/dl instead.
@@ -175,6 +175,11 @@ go version
 
 git clone <your-repo-url> /opt/timbre-src
 cd /opt/timbre-src
+
+# Fetch frontend deps (vite and the rest of web/package.json's devDependencies
+# aren't shipped in the repo — `make build` needs them installed first).
+cd web && npm install && cd ..
+
 make build   # frontend build → embed → CGO_ENABLED=0 go build
 
 # Install the binary + create a dedicated user and data dir.
@@ -251,7 +256,7 @@ docker image prune -f          # optional: drop the old image layers
 ```bash
 # On the Debian guest, as root:
 apt update
-apt install -y ffmpeg ca-certificates tzdata git
+apt install -y ffmpeg ca-certificates tzdata git make
 
 # Debian stable's `golang-go`/`nodejs` packages usually lag behind go.mod's
 # requirement (go 1.26+) and the frontend's needs. Prefer the upstream
@@ -261,6 +266,11 @@ node --version
 
 git clone <your-repo-url> /opt/timbre-src
 cd /opt/timbre-src
+
+# Fetch frontend deps (vite and the rest of web/package.json's devDependencies
+# aren't shipped in the repo — `make build` needs them installed first).
+cd web && npm install && cd ..
+
 make build   # frontend build → embed → CGO_ENABLED=0 go build
 
 # Install the binary + create a dedicated system user and data dir.
