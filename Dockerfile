@@ -8,14 +8,15 @@ RUN npm run build
 
 # Stage 2: build Go backend (with embedded frontend).
 FROM golang:1.26-alpine AS go-builder
-RUN apk add --no-cache gcc musl-dev
+RUN apk add --no-cache gcc musl-dev git
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 # Copy the built frontend into the embed directory.
 COPY --from=frontend-builder /app/web/build ./internal/api/frontend
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /timbre-server ./cmd/server
+RUN VERSION="$(./scripts/version.sh)" && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/ultimoistante/timbre/internal/version.Version=$VERSION" -o /timbre-server ./cmd/server
 
 # Stage 3: minimal runtime image.
 FROM alpine:3.20

@@ -1,5 +1,7 @@
 .PHONY: all build frontend backend test clean
 
+VERSION := $(shell ./scripts/version.sh)
+
 all: build
 
 # Full build: npm build → copy to embed dir → go build.
@@ -11,7 +13,7 @@ frontend:
 	cp -r web/build internal/api/frontend
 
 backend:
-	go build -o bin/timbre-server ./cmd/server
+	go build -ldflags "-X github.com/ultimoistante/timbre/internal/version.Version=$(VERSION)" -o bin/timbre-server ./cmd/server
 
 # Run backend only (assumes frontend already built).
 run: backend

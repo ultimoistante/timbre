@@ -194,7 +194,7 @@
               </button>
             </td>
             <td class="meta">{entry.isDir ? '' : fmtSize(entry.size)}</td>
-            <td class="meta">{new Date(entry.modTime).toLocaleDateString()}</td>
+            <td class="meta">{new Date(entry.modTime).toISOString().slice(0, 10)}</td>
             <td>
               <button class="sm" on:click={() => download(entry.name)} title="Download">↓</button>
               <button class="sm" on:click={() => { renameTarget=entry.name; renameVal=entry.name; renameModal=true; }} title="Rename">✎</button>

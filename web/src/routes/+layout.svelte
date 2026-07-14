@@ -28,6 +28,25 @@
 
   $: userInitial = $auth.user?.username?.[0]?.toUpperCase() ?? 'U';
 
+  let showUserMenu = false;
+  function toggleUserMenu() { showUserMenu = !showUserMenu; }
+
+  function handleWindowKeydown(e) {
+    if (e.key === 'Escape' && showUserMenu) showUserMenu = false;
+  }
+
+  function handleUserMenuBlur(e) {
+    if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget)) {
+      showUserMenu = false;
+    }
+  }
+
+  function logout() {
+    api.post('/auth/logout');
+    auth.logout();
+    goto('/auth/login');
+  }
+
   let artError = false;
   $: if ($currentTrack) artError = false;
 
@@ -39,12 +58,13 @@
       : ($currentTrack.albumHash ? `/api/albums/${$currentTrack.albumHash}/art` : '');
 </script>
 
+<svelte:window on:keydown={handleWindowKeydown} />
+
 <div class="app">
   {#if $auth.accessToken}
     <nav class="sidebar">
       <div class="brand-row">
         <span class="brand">Timbre</span>
-        <div class="avatar">{userInitial}</div>
       </div>
 
       <a href="/" class="nav-link" class:active={isActive('/')}>
@@ -82,19 +102,7 @@
         Settings
       </a>
 
-      {#if $auth.user?.role === 'admin'}
-        <a href="/admin" class="nav-link" class:active={isActive('/admin')}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-          Admin
-        </a>
-      {/if}
-
       <hr class="nav-sep" />
-
-      <button class="logout-btn" on:click={() => { api.post('/auth/logout'); auth.logout(); goto('/auth/login'); }}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Logout
-      </button>
 
       <div class="sidebar-bottom">
         <div class="now-playing-art">
@@ -113,6 +121,40 @@
 
       </div>
     </nav>
+  {/if}
+
+  {#if $auth.accessToken}
+    <div
+      class="user-menu-container"
+      tabindex="-1"
+      on:focusout={handleUserMenuBlur}
+    >
+      <button
+        class="user-menu-trigger"
+        on:click={toggleUserMenu}
+        aria-label="User menu"
+        aria-expanded={showUserMenu}
+      >
+        <div class="avatar">{userInitial}</div>
+        <span class="username">{$auth.user?.username ?? ''}</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+
+      {#if showUserMenu}
+        <div class="user-menu" role="menu" aria-label="User options">
+          {#if $auth.user?.role === 'admin'}
+            <a href="/admin" class="menu-link" role="menuitem" on:click={() => { showUserMenu = false; }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Users
+            </a>
+          {/if}
+          <button class="logout-btn" role="menuitem" on:click={logout}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Logout
+          </button>
+        </div>
+      {/if}
+    </div>
   {/if}
 
   <main class="content">
@@ -156,6 +198,7 @@
   }
 
   .app {
+    position: relative;
     display: grid;
     grid-template-columns: 220px 1fr;
     grid-template-rows: 1fr auto;
@@ -256,6 +299,41 @@
     color: #888888;
   }
 
+  .user-menu-container {
+    position: absolute;
+    top: 16px;
+    right: 24px;
+    z-index: 100;
+  }
+
+  .user-menu-trigger {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    padding: 4px 8px 4px 4px;
+    border-radius: 20px;
+    color: #cccccc;
+  }
+  .user-menu-trigger:hover { background: #222222; color: #ffffff; }
+
+  .username {
+    font-size: 0.9rem;
+  }
+
+  .user-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 140px;
+    background: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    padding: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  }
+
+  .menu-link,
   .logout-btn {
     display: flex;
     align-items: center;
@@ -269,6 +347,7 @@
     font-size: 0.9rem;
     transition: background 150ms ease, color 150ms ease;
   }
+  .menu-link:hover,
   .logout-btn:hover { background: #222222; color: #ffffff; }
 
   .content {

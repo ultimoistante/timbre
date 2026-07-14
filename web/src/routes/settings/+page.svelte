@@ -14,8 +14,12 @@
   let customInput = '';   // user-chosen custom password
   let showQr = false;
   let qrDataUrl = '';
+  let appVersion = '';
 
-  onMount(loadToken);
+  onMount(() => {
+    loadToken();
+    api.get('/version').then(v => appVersion = v.version).catch(() => {});
+  });
 
   function resetQr() { showQr = false; qrDataUrl = ''; }
 
@@ -199,6 +203,10 @@
       </form>
     </div>
   </section>
+
+  {#if appVersion}
+    <p class="version">Timbre v{appVersion}</p>
+  {/if}
 </div>
 
 {#if confirm}
@@ -231,6 +239,7 @@
 
   .error { color: #f87171; font-size: 0.85rem; }
   .muted { color: #888888; font-size: 0.88rem; }
+  .version { color: #666666; font-size: 0.8rem; margin: 0; text-align: center; }
 
   .card {
     background: #1a1a1a;

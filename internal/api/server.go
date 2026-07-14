@@ -15,6 +15,7 @@ import (
 	"github.com/ultimoistante/timbre/internal/scanner"
 	"github.com/ultimoistante/timbre/internal/storage"
 	"github.com/ultimoistante/timbre/internal/subsonic"
+	"github.com/ultimoistante/timbre/internal/version"
 )
 
 // Server holds shared dependencies for all handlers.
@@ -76,6 +77,7 @@ func (s *Server) registerRoutes() {
 	api.POST("/auth/login", s.handleLogin)
 	api.POST("/auth/refresh", s.handleRefresh)
 	api.GET("/healthz", func(c echo.Context) error { return c.String(200, "ok") })
+	api.GET("/version", func(c echo.Context) error { return c.JSON(200, map[string]string{"version": version.Version}) })
 
 	// Authenticated endpoints.
 	authed := api.Group("", auth.RequireAuth(s.jwt, s.db))

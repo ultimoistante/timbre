@@ -1,0 +1,32 @@
+#!/sbin/openrc-run
+# OpenRC service script for Timbre.
+# Install: cp to /etc/init.d/timbre, chmod +x, then `rc-update add timbre default`.
+# Config is read from /etc/conf.d/timbre (see timbre.conf.d in this directory).
+
+name="timbre"
+description="Timbre self-hosted music server"
+
+command="/opt/timbre/timbre-server"
+command_user="${TIMBRE_USER:-timbre}:${TIMBRE_USER:-timbre}"
+command_background="yes"
+pidfile="/run/${RC_SVCNAME}.pid"
+output_log="/var/log/timbre/timbre.log"
+error_log="/var/log/timbre/timbre.err"
+
+: "${TIMBRE_DATA_DIR:=/var/lib/timbre}"
+: "${TIMBRE_HOST:=0.0.0.0}"
+: "${TIMBRE_PORT:=8080}"
+: "${TIMBRE_DB_DRIVER:=sqlite}"
+
+export TIMBRE_DATA_DIR TIMBRE_HOST TIMBRE_PORT TIMBRE_DB_DRIVER \
+	TIMBRE_DB_DSN TIMBRE_ACCESS_TTL_MIN TIMBRE_REFRESH_TTL_DAYS
+
+depend() {
+	need net
+	after firewall
+}
+
+start_pre() {
+	checkpath -d -m 0755 -o "${command_user}" /var/log/timbre
+	checkpath -d -m 0755 -o "${command_user}" "${TIMBRE_DATA_DIR}"
+}

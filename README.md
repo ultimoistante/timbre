@@ -116,6 +116,188 @@ TIMBRE_DB_DSN="host=localhost user=timbre password=secret dbname=timbre sslmode=
 
 ---
 
+## Deployment (Proxmox guest)
+
+Two ways to run Timbre on a Proxmox guest (LXC container or VM): **Docker**
+(isolated, easiest updates) or **native** (no container runtime, runs as a
+system service). Pick your guest OS below — both are covered.
+
+> **LXC + Docker note:** Docker needs an unprivileged LXC container with
+> nesting enabled, or a VM. On the Proxmox host:
+> `pct set <vmid> --features nesting=1,keyctl=1`, then reboot the container.
+> If you'd rather avoid this entirely, use the native install below — an LXC
+> container is fine for it as-is.
+
+### Alpine Linux
+
+#### Option A — Docker
+
+**Install**
+
+```bash
+# On the Alpine guest, as root:
+apk update
+apk add docker docker-cli-compose git
+rc-update add docker boot
+service docker start
+
+git clone <your-repo-url> /opt/timbre
+cd /opt/timbre
+docker compose up -d --build
+```
+
+Timbre listens on `:8080` (mapped in `docker-compose.yml`); data (DB, media,
+JWT secret) lives in the `music_data` named volume. Edit the `environment:`
+block in `docker-compose.yml` first if you want Postgres or a different port —
+see [Configuration](#configuration).
+
+**Update**
+
+```bash
+cd /opt/timbre
+git pull
+docker compose up -d --build   # rebuilds the image, recreates the container; the volume is untouched
+docker image prune -f          # optional: drop the old image layers
+```
+
+#### Option B — Native (OpenRC service)
+
+**Install**
+
+```bash
+# On the Alpine guest, as root:
+apk update
+apk add ffmpeg ca-certificates tzdata go nodejs npm git
+
+# Check the Go version matches go.mod's requirement (go 1.26+); if the apk
+# package is older, install the toolchain from https://go.dev/dl instead.
+go version
+
+git clone <your-repo-url> /opt/timbre-src
+cd /opt/timbre-src
+make build   # frontend build → embed → CGO_ENABLED=0 go build
+
+# Install the binary + create a dedicated user and data dir.
+addgroup -S timbre 2>/dev/null; adduser -S -D -H -G timbre timbre 2>/dev/null
+install -d -o timbre -g timbre /var/lib/timbre
+install -d -o timbre -g timbre /var/log/timbre
+mkdir -p /opt/timbre
+cp bin/timbre-server /opt/timbre/timbre-server
+
+# OpenRC service + config (shipped in this repo under contrib/alpine/).
+cp contrib/alpine/timbre.initd /etc/init.d/timbre
+chmod +x /etc/init.d/timbre
+cp contrib/alpine/timbre.conf.d /etc/conf.d/timbre
+
+rc-update add timbre default
+rc-service timbre start
+rc-service timbre status
+```
+
+Edit `/etc/conf.d/timbre` to change data dir, port, or switch to Postgres — see
+[Configuration](#configuration) for all variables. Logs land in
+`/var/log/timbre/timbre.log` / `timbre.err`.
+
+**Update**
+
+```bash
+cd /opt/timbre-src
+git pull
+make build
+rc-service timbre stop
+cp bin/timbre-server /opt/timbre/timbre-server
+rc-service timbre start
+```
+
+The data directory (`/var/lib/timbre` by default) is untouched by an update —
+only the binary is replaced.
+
+### Debian
+
+#### Option A — Docker
+
+**Install**
+
+```bash
+# On the Debian guest, as root. Debian's own `docker.io` package is often
+# quite old; the official install script below tracks current Docker releases.
+apt update
+apt install -y ca-certificates curl git
+curl -fsSL https://get.docker.com | sh   # installs docker-ce + the compose plugin
+
+git clone <your-repo-url> /opt/timbre
+cd /opt/timbre
+docker compose up -d --build
+```
+
+Timbre listens on `:8080` (mapped in `docker-compose.yml`); data (DB, media,
+JWT secret) lives in the `music_data` named volume. Edit the `environment:`
+block in `docker-compose.yml` first if you want Postgres or a different port —
+see [Configuration](#configuration).
+
+**Update**
+
+```bash
+cd /opt/timbre
+git pull
+docker compose up -d --build   # rebuilds the image, recreates the container; the volume is untouched
+docker image prune -f          # optional: drop the old image layers
+```
+
+#### Option B — Native (systemd service)
+
+**Install**
+
+```bash
+# On the Debian guest, as root:
+apt update
+apt install -y ffmpeg ca-certificates tzdata git
+
+# Debian stable's `golang-go`/`nodejs` packages usually lag behind go.mod's
+# requirement (go 1.26+) and the frontend's needs. Prefer the upstream
+# toolchains: https://go.dev/dl and https://github.com/nodesource/distributions
+go version
+node --version
+
+git clone <your-repo-url> /opt/timbre-src
+cd /opt/timbre-src
+make build   # frontend build → embed → CGO_ENABLED=0 go build
+
+# Install the binary + create a dedicated system user and data dir.
+useradd --system --home-dir /var/lib/timbre --shell /usr/sbin/nologin timbre
+install -d -o timbre -g timbre /var/lib/timbre
+mkdir -p /opt/timbre /etc/timbre
+cp bin/timbre-server /opt/timbre/timbre-server
+
+# systemd unit + env file (shipped in this repo under contrib/debian/).
+cp contrib/debian/timbre.service /etc/systemd/system/timbre.service
+cp contrib/debian/timbre.env /etc/timbre/timbre.env
+
+systemctl daemon-reload
+systemctl enable --now timbre
+systemctl status timbre
+```
+
+Edit `/etc/timbre/timbre.env` to change data dir, port, or switch to Postgres —
+see [Configuration](#configuration) for all variables. Logs go to the journal:
+`journalctl -u timbre -f`.
+
+**Update**
+
+```bash
+cd /opt/timbre-src
+git pull
+make build
+systemctl stop timbre
+cp bin/timbre-server /opt/timbre/timbre-server
+systemctl start timbre
+```
+
+The data directory (`/var/lib/timbre` by default) is untouched by an update —
+only the binary is replaced.
+
+---
+
 ## OpenSubsonic API
 
 Timbre exposes an [OpenSubsonic](https://opensubsonic.netlify.app/)-compatible
