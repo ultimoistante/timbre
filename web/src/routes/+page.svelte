@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { api } from '$lib/api/client.js';
+  import { tilt } from '$lib/actions/tilt.js';
 
   let albums = [];
   let artErrors = {};
@@ -28,7 +29,7 @@
   {:else}
     <div class="grid">
       {#each albums as album}
-        <button class="card" on:click={() => goto('/library/' + album.albumHash)}>
+        <button class="card" use:tilt on:click={() => goto('/library/' + album.albumHash)}>
           <div class="art">
             {#if !artErrors[album.albumHash]}
               <img

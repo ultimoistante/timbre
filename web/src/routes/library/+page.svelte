@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { api } from '$lib/api/client.js';
   import { player } from '$lib/stores/player.js';
+  import { tilt } from '$lib/actions/tilt.js';
 
   let albums = [], artists = [], tracks = [], searchResults = [];
   let artErrors = {};
@@ -100,7 +101,7 @@
   {:else if view === 'albums'}
     <div class="grid">
       {#each albums as a}
-        <div class="card album-card" on:click={() => openAlbum(a)} on:keypress={() => openAlbum(a)} role="button" tabindex="0">
+        <div class="card album-card" use:tilt on:click={() => openAlbum(a)} on:keypress={() => openAlbum(a)} role="button" tabindex="0">
           <div class="album-placeholder">
             {#if !artErrors[a.albumHash]}
               <img
