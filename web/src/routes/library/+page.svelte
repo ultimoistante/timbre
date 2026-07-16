@@ -11,6 +11,7 @@
   let searchQ = '';
   let scanning = false;
   let scanMsg = '';
+  let showScanConfirm = false;
 
   onMount(() => { loadAll(); return listenSSE(); });
 
@@ -27,11 +28,25 @@
   }
 
   async function doSearch() {
-    if (!searchQ.trim()) { searchResults = []; return; }
+    if (!searchQ.trim() || view === 'albums') { searchResults = []; return; }
     searchResults = await api.get(`/search?q=${encodeURIComponent(searchQ)}`);
   }
 
-  async function startScan() {
+  $: filteredAlbums = (() => {
+    const q = searchQ.trim().toLowerCase();
+    if (!q) return albums;
+    return albums.filter(a =>
+      (a.album || '').toLowerCase().includes(q) ||
+      (a.albumArtist || '').toLowerCase().includes(q)
+    );
+  })();
+
+  function askScan() {
+    showScanConfirm = true;
+  }
+
+  async function confirmScan() {
+    showScanConfirm = false;
     scanning = true; scanMsg = 'Starting scan…';
     await api.post('/scan').catch(e => { scanMsg = e.message; scanning = false; });
   }
@@ -40,7 +55,12 @@
     const es = new EventSource('/api/events', { withCredentials: true });
     es.addEventListener('scan', e => {
       const p = JSON.parse(e.data);
-      if (p.finished) { scanning = false; scanMsg = `Done — +${p.added} added, ~${p.updated} updated, -${p.removed} removed`; loadAll(); }
+      if (p.finished) {
+        scanning = false;
+        scanMsg = `Done — +${p.added} added, ~${p.updated} updated, -${p.removed} removed`;
+        loadAll();
+        setTimeout(() => { scanMsg = ''; }, 3000);
+      }
       else { scanMsg = `Scanning… ${p.done}/${p.total} — ${p.current}`; }
     });
     return () => es.close();
@@ -63,17 +83,22 @@
   <header>
     <div class="tabs">
       {#each ['albums','artists','tracks'] as t}
-        <button class:active={view===t} on:click={() => { view=t; }}>
+        <button class:active={view===t} on:click={() => { view=t; doSearch(); }}>
           {t.charAt(0).toUpperCase()+t.slice(1)}
         </button>
       {/each}
+      <button class="scan-btn" on:click={askScan} disabled={scanning}>
+        {scanning ? 'Scanning…' : 'Rescan'}
+      </button>
     </div>
 
     <div class="search-row">
-      <input placeholder="Search…" bind:value={searchQ} on:input={doSearch} />
-      <button on:click={startScan} disabled={scanning}>
-        {scanning ? 'Scanning…' : 'Scan'}
-      </button>
+      <div class="search-input-wrap">
+        <input placeholder="Search…" bind:value={searchQ} on:input={doSearch} />
+        {#if searchQ}
+          <button class="clear-btn" aria-label="Clear search" on:click={() => { searchQ = ''; doSearch(); }}>×</button>
+        {/if}
+      </div>
     </div>
     {#if scanMsg}<p class="scan-msg">{scanMsg}</p>{/if}
   </header>
@@ -100,7 +125,7 @@
     </section>
   {:else if view === 'albums'}
     <div class="grid">
-      {#each albums as a}
+      {#each filteredAlbums as a}
         <div class="card album-card" use:tilt on:click={() => openAlbum(a)} on:keypress={() => openAlbum(a)} role="button" tabindex="0">
           <div class="album-placeholder">
             {#if !artErrors[a.albumHash]}
@@ -160,6 +185,19 @@
       {/each}
     </ul>
   {/if}
+
+  {#if showScanConfirm}
+    <div class="confirm-backdrop" on:click={() => showScanConfirm = false} on:keydown={() => {}} role="presentation">
+      <div class="confirm-modal" role="alertdialog" aria-modal="true" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation={() => {}}>
+        <h2>Rescan library?</h2>
+        <p>This will scan your library folders for new, changed, and removed tracks.</p>
+        <div class="confirm-actions">
+          <button class="cancel" on:click={() => showScanConfirm = false}>Cancel</button>
+          <button class="confirm" on:click={confirmScan}>Rescan</button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -168,8 +206,24 @@
   .tabs { display:flex; gap:6px; }
   .tabs button { background:#222222; }
   .tabs button.active { background:#333333; }
+  .tabs .scan-btn { margin-left:36px; }
   .search-row { display:flex; gap:10px; }
-  .search-row input { flex:1; }
+  .search-input-wrap { position:relative; flex:1; }
+  .search-input-wrap input { width:100%; padding-right:32px; }
+  .clear-btn {
+    position:absolute;
+    right:6px;
+    top:50%;
+    transform:translateY(-50%);
+    background:transparent;
+    border:none;
+    color:#888888;
+    font-size:1.1rem;
+    line-height:1;
+    cursor:pointer;
+    padding:4px 6px;
+  }
+  .clear-btn:hover { color:#eeeeee; }
   .scan-msg { font-size:0.82rem; color:#888888; }
 
   .grid {
@@ -262,4 +316,46 @@
   .t-dur { font-size:0.8rem; color:#888888; text-align:right; min-width:40px; flex-shrink:0; }
 
   h2 { font-size:1.2rem; }
+
+  /* Rescan confirm dialog */
+  .confirm-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .confirm-modal {
+    background: #1e1e1e;
+    border: 1px solid #3a3a3a;
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .confirm-modal h2 { font-weight:700; color:#ffffff; }
+  .confirm-modal p { font-size:0.85rem; color:#aaaaaa; }
+  .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .confirm-actions button {
+    padding: 9px 20px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.88rem;
+  }
+  .confirm-actions .cancel { background:none; color:#cccccc; }
+  .confirm-actions .cancel:hover { background:#2a2a2a; }
+  .confirm-actions .confirm { background:#1db954; color:#000000; }
+  .confirm-actions .confirm:hover { background:#1ed760; }
 </style>

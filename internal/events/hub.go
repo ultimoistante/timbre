@@ -48,15 +48,26 @@ func (h *Hub) Unsubscribe(userID uint, ch chan Message) {
 	}
 }
 
-// Publish delivers a message to all of a user's subscribers. Slow subscribers
-// whose buffer is full are skipped (non-blocking) to avoid stalling the sender.
+// Publish delivers a message to all of a user's subscribers without blocking
+// the sender. If a subscriber's buffer is full, the oldest queued message is
+// evicted to make room — this guarantees the most recent message (crucially,
+// a terminal "finished" event) is never lost to a full buffer, at the cost of
+// dropping stale intermediate progress ticks.
 func (h *Hub) Publish(userID uint, event string, data []byte) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	for ch := range h.subs[userID] {
-		select {
-		case ch <- Message{Event: event, Data: data}:
-		default:
+		for {
+			select {
+			case ch <- Message{Event: event, Data: data}:
+			default:
+				select {
+				case <-ch:
+				default:
+				}
+				continue
+			}
+			break
 		}
 	}
 }
