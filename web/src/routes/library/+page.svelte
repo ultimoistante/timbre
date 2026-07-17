@@ -12,6 +12,8 @@
   let searchQ = '';
   let scanning = false;
   let scanMsg = '';
+  let scanDone = 0;
+  let scanTotal = 0;
   let showScanConfirm = false;
 
   onMount(() => { loadAll(); return listenSSE(); });
@@ -55,9 +57,14 @@
   }
 
   async function confirmScan() {
-    showScanConfirm = false;
-    scanning = true; scanMsg = 'Starting scan…';
+    scanning = true; scanMsg = 'Starting scan…'; scanDone = 0; scanTotal = 0;
     await api.post('/scan').catch(e => { scanMsg = e.message; scanning = false; });
+  }
+
+  function closeScanModal() {
+    if (scanning) return;
+    showScanConfirm = false;
+    scanMsg = '';
   }
 
   function listenSSE() {
@@ -68,9 +75,12 @@
         scanning = false;
         scanMsg = `Done — +${p.added} added, ~${p.updated} updated, -${p.removed} removed`;
         loadAll();
-        setTimeout(() => { scanMsg = ''; }, 3000);
+        setTimeout(() => { showScanConfirm = false; scanMsg = ''; }, 3000);
       }
-      else { scanMsg = `Scanning… ${p.done}/${p.total} — ${p.current}`; }
+      else {
+        scanDone = p.done; scanTotal = p.total;
+        scanMsg = `Scanning… ${p.done}/${p.total} — ${p.current}`;
+      }
     });
     return () => es.close();
   }
@@ -109,7 +119,6 @@
         {/if}
       </div>
     </div>
-    {#if scanMsg}<p class="scan-msg">{scanMsg}</p>{/if}
   </header>
 
   {#if searchResults.length}
@@ -233,14 +242,27 @@
   {/if}
 
   {#if showScanConfirm}
-    <div class="confirm-backdrop" on:click={() => showScanConfirm = false} on:keydown={() => {}} role="presentation">
+    <div class="confirm-backdrop" on:click={closeScanModal} on:keydown={() => {}} role="presentation">
       <div class="confirm-modal" role="alertdialog" aria-modal="true" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation={() => {}}>
-        <h2>Rescan library?</h2>
-        <p>This will scan your library folders for new, changed, and removed tracks.</p>
-        <div class="confirm-actions">
-          <button class="cancel" on:click={() => showScanConfirm = false}>Cancel</button>
-          <button class="confirm" on:click={confirmScan}>Rescan</button>
-        </div>
+        {#if !scanning && !scanMsg}
+          <h2>Rescan library?</h2>
+          <p>This will scan your library folders for new, changed, and removed tracks.</p>
+          <div class="confirm-actions">
+            <button class="cancel" on:click={() => showScanConfirm = false}>Cancel</button>
+            <button class="confirm" on:click={confirmScan}>Rescan</button>
+          </div>
+        {:else}
+          <h2>{scanning ? 'Scanning library…' : 'Scan complete'}</h2>
+          {#if scanTotal}
+            <div class="scan-progress" role="progressbar" aria-valuenow={Math.round(scanDone / scanTotal * 100)} aria-valuemin="0" aria-valuemax="100">
+              <div class="scan-progress-fill" style="width: {Math.round(scanDone / scanTotal * 100)}%"></div>
+            </div>
+          {/if}
+          <p class="scan-msg-modal">{scanMsg}</p>
+          <div class="confirm-actions">
+            <button class="cancel" on:click={closeScanModal} disabled={scanning}>Close</button>
+          </div>
+        {/if}
       </div>
     </div>
   {/if}
@@ -270,7 +292,6 @@
     padding:4px 6px;
   }
   .clear-btn:hover { color:#eeeeee; }
-  .scan-msg { font-size:0.82rem; color:#888888; }
 
   .grid {
     display:grid;
@@ -407,4 +428,20 @@
   .confirm-actions .cancel:hover { background:#2a2a2a; }
   .confirm-actions .confirm { background:#1db954; color:#000000; }
   .confirm-actions .confirm:hover { background:#1ed760; }
+  .confirm-actions .cancel:disabled { opacity:0.5; cursor:default; }
+
+  .scan-progress {
+    position: relative;
+    height: 8px;
+    border-radius: 4px;
+    background: #2a2a2a;
+    overflow: hidden;
+  }
+  .scan-progress-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: #1db954;
+    transition: width 150ms ease;
+  }
+  .scan-msg-modal { font-size:0.82rem; color:#aaaaaa; word-break:break-word; }
 </style>
