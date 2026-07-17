@@ -8,6 +8,7 @@
   let albums = [], artists = [], tracks = [], searchResults = [];
   let artErrors = {};
   let view = 'albums';
+  let selectedArtist = null;
   let searchQ = '';
   let scanning = false;
   let scanMsg = '';
@@ -26,6 +27,14 @@
   function openAlbum(album) {
     goto('/library/' + album.albumHash);
   }
+
+  function selectArtist(artist) {
+    selectedArtist = selectedArtist?.artistHash === artist.artistHash ? null : artist;
+  }
+
+  $: artistAlbums = selectedArtist
+    ? albums.filter(a => a.artistHash === selectedArtist.artistHash)
+    : [];
 
   async function doSearch() {
     if (!searchQ.trim() || view === 'albums') { searchResults = []; return; }
@@ -83,7 +92,7 @@
   <header>
     <div class="tabs">
       {#each ['albums','artists','tracks'] as t}
-        <button class:active={view===t} on:click={() => { view=t; doSearch(); }}>
+        <button class:active={view===t} on:click={() => { view=t; selectedArtist=null; doSearch(); }}>
           {t.charAt(0).toUpperCase()+t.slice(1)}
         </button>
       {/each}
@@ -153,7 +162,14 @@
   {:else if view === 'artists'}
     <div class="grid">
       {#each artists as a}
-        <div class="card artist-card">
+        <div
+          class="card artist-card"
+          class:active={selectedArtist?.artistHash === a.artistHash}
+          on:click={() => selectArtist(a)}
+          on:keypress={() => selectArtist(a)}
+          role="button"
+          tabindex="0"
+        >
           <div class="artist-avatar">
             {#if a.name}
               <span class="placeholder-letter">{a.name[0].toUpperCase()}</span>
@@ -166,6 +182,36 @@
         </div>
       {/each}
     </div>
+
+    {#if selectedArtist}
+      <hr />
+      <h2>{selectedArtist.name || 'Unknown'}</h2>
+      <div class="grid">
+        {#each artistAlbums as a}
+          <div class="card album-card" use:tilt on:click={() => openAlbum(a)} on:keypress={() => openAlbum(a)} role="button" tabindex="0">
+            <div class="album-placeholder">
+              {#if !artErrors[a.albumHash]}
+                <img
+                  src="/api/albums/{a.albumHash}/art"
+                  alt=""
+                  class="album-art"
+                  on:error={() => { artErrors[a.albumHash] = true; artErrors = artErrors; }}
+                />
+              {:else if a.album}
+                <span class="placeholder-letter">{a.album[0].toUpperCase()}</span>
+              {:else}
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+              {/if}
+            </div>
+            <div class="card-text">
+              <p class="album-title">{a.album || 'Unknown'}</p>
+              <p class="album-artist">{a.albumArtist || '—'}</p>
+              <p class="album-meta">{a.trackCount} tracks{a.year ? ' · ' + a.year : ''}</p>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
 
   {:else if view === 'tracks'}
     <ul class="track-list" role="listbox" aria-label="Tracks">
@@ -295,6 +341,9 @@
     color:#555555;
   }
   .artist-avatar svg { color:#555555; }
+  .artist-card.active { border-color:#1db954; }
+
+  hr { border:none; border-top:1px solid #2a2a2a; margin:4px 0; }
 
   .placeholder-letter { font-size:2rem; color:#555555; line-height:1; }
   .artist-avatar .placeholder-letter { font-size:1.5rem; }
