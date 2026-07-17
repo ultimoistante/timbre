@@ -93,6 +93,7 @@ func (s *Server) registerRoutes() {
 	// Filesystem CRUD (scoped to the authenticated user's media root).
 	fs := authed.Group("/fs")
 	fs.GET("/list", s.handleFSList)
+	fs.GET("/stats", s.handleFSStats)
 	fs.POST("/mkdir", s.handleFSMkdir)
 	fs.POST("/rename", s.handleFSRename)
 	fs.POST("/move", s.handleFSMove)

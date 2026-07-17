@@ -34,6 +34,18 @@ func (s *Server) handleFSList(c echo.Context) error {
 	})
 }
 
+func (s *Server) handleFSStats(c echo.Context) error {
+	abs, err := s.resolve(c, "")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	stats, err := fsops.Walk(abs)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "not a directory")
+	}
+	return c.JSON(http.StatusOK, stats)
+}
+
 type pathBody struct {
 	Path string `json:"path"`
 }

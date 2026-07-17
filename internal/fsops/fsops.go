@@ -50,6 +50,35 @@ func List(absDir string) ([]Entry, error) {
 	return entries, nil
 }
 
+// Stats holds recursive totals for a directory tree.
+type Stats struct {
+	Files   int   `json:"files"`
+	Folders int   `json:"folders"`
+	Bytes   int64 `json:"bytes"`
+}
+
+// Walk computes recursive file/folder counts and total size rooted at absDir.
+// absDir itself is not counted as a folder.
+func Walk(absDir string) (Stats, error) {
+	var st Stats
+	err := filepath.Walk(absDir, func(p string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if p == absDir {
+			return nil
+		}
+		if info.IsDir() {
+			st.Folders++
+		} else {
+			st.Files++
+			st.Bytes += info.Size()
+		}
+		return nil
+	})
+	return st, err
+}
+
 // Mkdir creates a directory and any missing parents.
 func Mkdir(absPath string) error {
 	return os.MkdirAll(absPath, 0o755)

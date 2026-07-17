@@ -5,6 +5,7 @@
 
   let currentPath = '';
   let entries = [];
+  let stats = null;
   let selected = new Set();
   let dragging = false;
   let error = '';
@@ -35,7 +36,17 @@
   let copyModal = false, copyDst = '';
   let deleteModal = false;
 
-  onMount(() => loadDir(''));
+  onMount(() => { loadDir(''); loadStats(); });
+
+  async function loadStats() {
+    stats = await api.get('/fs/stats').catch(() => null);
+  }
+
+  function fmtStats(s) {
+    const MiB = 1024 * 1024, GiB = MiB * 1024;
+    const size = s.bytes < GiB ? `${(s.bytes / MiB).toFixed(1)} MiB` : `${(s.bytes / GiB).toFixed(1)} GiB`;
+    return `${s.files} files in ${s.folders} folders, ${size} total`;
+  }
 
   async function loadDir(path) {
     error = '';
@@ -110,6 +121,7 @@
 
     uploading = false;
     loadDir(currentPath);
+    loadStats();
   }
 
   function closeUploadModal() {
@@ -151,6 +163,7 @@
     await api.post('/fs/mkdir', { path: join(currentPath, mkdirName) }).catch(e => error = e.message);
     mkdirModal = false; mkdirName = '';
     loadDir(currentPath);
+    loadStats();
   }
 
   async function doRename() {
@@ -169,6 +182,7 @@
       await api.post('/fs/delete', { path: join(currentPath, name) }).catch(e => error = e.message);
     }
     loadDir(currentPath);
+    loadStats();
   }
 
   async function doMove() {
@@ -189,6 +203,7 @@
     }
     copyModal = false; copyDst = '';
     loadDir(currentPath);
+    loadStats();
   }
 
   function download(name) {
@@ -234,6 +249,8 @@
       {/if}
     </div>
   </div>
+
+  {#if stats}<p class="stats-line">{fmtStats(stats)}</p>{/if}
 
   {#if error}<p class="error">{error}</p>{/if}
 
@@ -412,6 +429,7 @@
   .sep { color:#444444; font-size:0.85rem; user-select:none; }
   .actions { display:flex; gap:6px; flex-wrap:wrap; }
   .error { color:#f87171; font-size:0.85rem; }
+  .stats-line { color:#888888; font-size:0.82rem; }
 
   .danger { background:#7f1d1d; }
   .danger:hover { background:#991b1b; }
